@@ -1,0 +1,317 @@
+\documentclass{article}
+
+\usepackage{amsmath}
+%\usepackage{amsfonts}
+\usepackage{amsthm}
+%\usepackage{amssymb}
+%\usepackage{mathrsfs}
+%\usepackage{fullpage}
+%\usepackage{mathptmx}
+%\usepackage[varg]{txfonts}
+\usepackage{color}
+\usepackage[charter]{mathdesign}
+\usepackage[pdftex]{graphicx}
+%\usepackage{float}
+%\usepackage{hyperref}
+%\usepackage[modulo, displaymath, mathlines]{lineno}
+%\usepackage{setspace}
+%\usepackage[titletoc,toc,title]{appendix}
+\usepackage{natbib}
+
+%\linenumbers
+%\doublespacing
+
+\theoremstyle{definition}
+\newtheorem*{defn}{Definition}
+\newtheorem*{exm}{Example}
+
+\theoremstyle{plain}
+\newtheorem*{thm}{Theorem}
+\newtheorem*{lem}{Lemma}
+\newtheorem*{prop}{Proposition}
+\newtheorem*{cor}{Corollary}
+
+\newcommand{\argmin}{\text{argmin}}
+\newcommand{\ud}{\hspace{2pt}\mathrm{d}}
+\newcommand{\bs}{\boldsymbol}
+\newcommand{\PP}{\mathsf{P}}
+
+\title{Dual least-action principles for ice sheet dynamics}
+\author{Daniel Shapero}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+On space and time scales greater than 100m and 1 day, glaciers flow like a viscous fluid.
+The flow is slow enough to be described well by the incompressible Stokes equations
+\begin{align}
+    \nabla\cdot\tau - \nabla p + \rho g & = 0 \\
+    \nabla\cdot u & = 0
+\end{align}
+where $\tau$ is the deviatoric stress tensor, $p$ the pressure, and $u$ the velocity.
+To close this systme of equations, we need to prescribe a \emph{constitutive relation} between the stress tensor and the rate-of-strain tensor
+\begin{equation}
+    \dot\varepsilon = \frac{1}{2}(\nabla u + \nabla u^*).
+\end{equation}
+For a Newtonian fluid, the stress and the strain rate tensor are linearly proportional to each other: $\tau = 2\mu\dot\varepsilon$, where $\mu$ is the viscosity coefficient.
+Glacier ice, however, is non-Newtonian.
+The constitutive relation, called Glen's flow law, is usually presented as an equation for the strain rate in terms of the stress
+\begin{equation}
+    \dot\varepsilon = A|\tau|^{n - 1}\tau
+    \label{eq:glen-flow-law}
+\end{equation}
+where $A$ is the \emph{fluidity} coefficient and $n \approx 3$ is the flow law exponent.
+The reason for this formulation is that the early experiments on the constitutive relation for ice flow made the stress as the independent variable and measured the resulting strain rate.
+We can then invert the flow law to obtain an expression for stress in terms of strain rate that we then substitute into the momentum conservation equation.
+
+The momentum conservation and the constitutive relation together can be derived as the Euler-Lagrange equations to find a critical point of a certain action functional \citep{dukowicz2010consistent}.
+The action functional for the Stokes equations is
+\begin{align}
+    L(u, p) = & \int_\Omega\left(\frac{n}{n + 1}A^{-\frac{1}{n}}|\dot\varepsilon(u)|^{\frac{1}{n} + 1} - p\nabla\cdot u + \rho g\cdot u\right)\ud x \\
+    & \qquad + \int_{\Gamma_b}\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\ud\gamma
+\end{align}
+where $C$ is the friction coefficient, $m$ the basal sliding exponent, and $\Gamma_b$ the lower surface of the glacier.
+In this formulation, the pressure plays the role of a Lagrange multiplier to enforce the condition that the velocity field is divergence-free.
+We must then add boundary conditions at the inflow and outflow boundaries, as well as the condition
+\begin{equation}
+    u\cdot\nu = \dot b
+    \label{eq:basal-dirichlet-bc}
+\end{equation}
+where $\nu$ is the unit outward-pointing normal vector and $\dot b$ is the basal melt rate.
+The action principle offers a way to measure how well a putative solution to the momentum conservation equation matches the true solution and it is distinct from, say, the square norm of the residual \citep{shapero2021icepack}.
+The computed value of the action functional makes sense even with the minimal degree of regularity we expect of the solution, whereas the square norm of the residual does not.
+For this reason, the existence of an action principle can be very useful in numerical implementations.
+
+This work follows in the footsteps of \citet{dukowicz2010consistent} in studying least-action principles for glacier flow.
+Our main contribution is the derivation of an alternative \emph{dual} least-action principle, distinct from that presented in \citet{dukowicz2010consistent}, from which the momentum conservation equations can be derived.
+The dual variational principle for the Stokes equations explicitly includes the stress as an unknown.
+For this reason, it is sometimes referred to as a \emph{three-field} formulation in the literature.
+Several studies have explored using the three-field formulation of the nonlinear Stokes equations \citep{manouzi2001mixed, ervin2008dual, codina2009finite, farhloul2017dual}.
+These works have focused on finding LBB-stable finite elements and deriving a priori estimates for the solution norm, but none have examined the specific application to glaciology or nonlinear solution strategies.
+In addition to the three-field formulation of the full Stokes equations, we will described dual variational principles for the various perturbative simplifications commonly used in glaciology.
+The dual formulation has certain favorable numerical properties for shear-thinning flows that we will describe.
+Finally, we will illustrate with a numerical implementation.
+
+
+\section{Dual variational principles}
+
+\subsection{Groundwater flow}
+
+To illustrate our approach, we will begin by deriving a dual variational principle for a simpler problem: groundwater flow in a confined aquifer.
+The unknowns in groundwater flow are the fluid velocity $u$ and the pressure head $\phi$.
+First, the total mass of water is conserved:
+\begin{equation}
+    \nabla\cdot u = f.
+    \label{eq:groundwater-conservation-law}
+\end{equation}
+where $f$ consists of all sources and sinks.
+Next, we need a constitutive law relating the velocity and pressure, which in this case will be Darcy's law
+\begin{equation}
+    u = -k\nabla\phi
+    \label{eq:darcy-law}
+\end{equation}
+where $k$ is the hydraulic conductivity.
+(Note that the conductivity could be a scalar or a rank-2 tensor.)
+Substituting Darcy's law into the conservation law eliminates $u$ from the problem, leaving us with a second-order PDE for the pressure head $\phi$.
+We must also add the essential Dirichlet boundary condition
+\begin{equation}
+    \phi|_{\partial\Omega} = g.
+    \label{eq:dirichlet-bc}
+\end{equation}
+We can then show after the fact that the weak form of this PDE is the Euler-Lagrange equation to minimize the functional
+\begin{equation}
+    J(\phi) = \int_\Omega\left(\frac{1}{2}k\nabla\phi\cdot\nabla\phi - f\phi\right)\ud x.
+\end{equation}
+Minimizing $J$ is the \emph{primal} form of the problem.
+
+In the description above, we eliminated the velocity $u$, but we might need this quantity for other reasons, like simulating contaminant dispersal.
+We could always calculate the pressure head by solving the Poisson equation and then calculate the velocity afterwards.
+What if we instead wanted to solve simultaneously for both $u$ and $\phi$?
+Is there some functional $L$ of both fields such that setting the derivative of $L$ to zero yields the pair of equations \eqref{eq:groundwater-conservation-law} and \eqref{eq:darcy-law}?
+This idea forms the basis of \emph{dual} or \emph{mixed} formulations of the problem.
+The desired functional $L$ is
+\begin{equation}
+    L = \int_\Omega\left(\frac{1}{2}k^{-1}u\cdot u - \phi\left(\nabla\cdot u - f\right)\right)\ud x - \int_{\partial\Omega}g\, u\cdot \nu\ud\gamma.
+\end{equation}
+An elementary computation shows that the Euler-Lagrange equations for a critical point of $L$ are identical to the weak form of equations \eqref{eq:groundwater-conservation-law}, \eqref{eq:darcy-law}, and the boundary condition \eqref{eq:dirichlet-bc}.
+In the dual problem, the hydraulic head $\phi$ plays the role of a Lagrange multiplier to enforce the conservation law $\nabla\cdot u = f$.
+Note how the essential boundary condition $\phi|_{\partial\Omega} = g$ in the primal problem became a natural boundary condition in the dual problem, i.e. we could include it directly in the Lagrangian.
+
+For our purposes, the most important thing to observe about the dual variational principle is that \emph{the constitutive relation is inverted}.
+Where the form of the Darcy law that we started with was $u = -k\nabla\phi$, taking the derivative of $L$ with respect to $u$ and setting it equal to zero gives
+\begin{equation}
+    \nabla\phi = -k^{-1}u.
+\end{equation}
+The two forms are mathematically equivalent, so at this juncture the distinction might not seem very significant and indeed for linear problems one form is as good as the other.
+For nonlinear constitutive relations, however, the consequences are more drastic.
+
+\subsection{Stokes flow}
+
+The preceding discussion suggests that we can find an alternative formulation of the Stokes problem that explicitly includes the stress tensor.
+Rather than have to invert Glen's flow law \eqref{eq:glen-flow-law} as is customary, we can instead use this relation directly.
+The key difference in the three-field formulation of the Stokes equations is that it becomes more natural to work with the full stress tensor $\sigma$ instead of the deviatoric stress tensor $\tau$.
+The Lagrangian is
+\begin{equation}
+    L(\sigma, u, p) = \int_\Omega\left(\frac{1}{n + 1}A|\sigma - pI|^{n + 1} + u\cdot(\nabla\cdot\sigma + \rho g)\right)\ud x + \ldots
+    \label{eq:stokes-dual-action}
+\end{equation}
+where the ellipses stand for boundary conditions that we will address at the end of this section.
+The condition that $\partial L/\partial u = 0$ enforces the conservation law $\nabla\cdot\sigma + \rho g = 0$, while the condition that $\partial L/\partial p = 0$ gives the relation
+\begin{equation}
+    p = \frac{1}{d}\text{tr}(\sigma).
+    \label{eq:pressure}
+\end{equation}
+Finally, taking the variational derivative of $L$ with respect to $\sigma$, doing some rearranging assuming symmetry, and setting the result equal to zero gives
+\begin{equation}
+    \dot\varepsilon(u) = \frac{1}{2}(\nabla u + \nabla u^*) = A|\sigma - pI|^{n - 1}(\sigma - pI),
+    \label{eq:three-field-constitutive}
+\end{equation}
+which is equivalent to Glen's flow law.
+Once again, the dual form inverts the constitutive relation.
+Taking the trace of both sides and using equation \eqref{eq:pressure} gives the incompressibility condition $\text{tr}(\dot\varepsilon(u)) = \nabla\cdot u = 0.$
+
+The key feature of this three-field formulation is that the nature of the nonlinearity has changed.
+In the primal formulation, the nonlinearity consists of the strain rate raised to the power $\frac{1}{n} + 1$.
+Since $n > 1$, the nonlinearity in the primal form has an infinite singularity in its second derivative around any velocity field with zero strain rate.
+In the dual form, however, the nonlinearity consists of the deviatoric stress tensor raised to the power $n + 1$.
+The second derivative of the Lagrangian is 0 instead of infinity where the stress tensor is 0.
+
+\begin{figure}[t]
+    \includegraphics[width=0.48\linewidth]{demos/singularity/primal.pdf}\includegraphics[width=0.48\linewidth]{demos/singularity/dual.pdf}
+    \caption{The viscous part of the action for the primal problem as a functionof the strain rate (left) and for the dual problem as a function of the stress (right).
+    The second derivative of the viscous dissipation goes to infinity near zero strain rate for the primal problem, but to zero near zero stress for the dual problem.}
+\end{figure}
+
+Finally, we left off discussion of boundary conditions at first.
+The basal boundary condition in the primal formulation consists partly of a Dirichlet-type condition in the normal direction (equation \eqref{eq:basal-dirichlet-bc}) and the Robin boundary condition
+\begin{equation}
+    \sigma\cdot\nu = -C|u|^{\frac{1}{m} - 1}u
+\end{equation}
+in the tangential directions.
+Note how the shear stress is expressed as a function of the velocity.
+In the dual formulation, the basal boundary condition instead expresses the sliding velocity as a function of the shear stress:
+\begin{equation}
+    u = -K|\sigma\cdot\nu|^{m - 1}\sigma\cdot\nu.
+\end{equation}
+In terms of the Lagrangian functional, the ellipses that we left out of equation \eqref{eq:stokes-dual-action} are:
+\begin{equation}
+    \ldots + \frac{1}{m + 1}\int_{\Gamma_b} K|\sigma\cdot\nu|^{m + 1}\ud\gamma.
+\end{equation}
+Once again, we see that the unfavorable nonlinearity with an infinite singularity around zero sliding velocity is transformed into one with a zero degeneracy in the dual formulation.
+
+\textcolor{red}{Rest of the boundary conditions...}
+
+Other three-field formulations of Stokes use the deviatoric stress tensor instead of the full stress tensor.
+We chose to use the full stress tensor because this form requires only that the velocity is in the function space $L^{\frac{1}{n} + 1}(\Omega)^d$.
+Using the deviatoric stress tensor instead requires that the velocity lives in the Sobolev space $W^{\frac{1}{n} + 1}_1(\Omega)^d$, i.e. that it has more regularity than strictly necessary.
+
+
+\subsection{Shallow stream approximation}
+
+Like the Stokes equations, the shallow stream approximation also has a least-action principle, and the dual form can be derived in a similar way.
+The primal form of the shallow stream approximation is
+\begin{align}
+    J(u) = & \int_\Omega\left(\frac{n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon(u)|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} + \rho gh\nabla s\cdot u\right)\ud x \nonumber \\
+    & \quad + \frac{1}{2}\int_\Gamma\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\ud\gamma
+\end{align}
+The rank-4 tensor $\mathscr{C}$ acts on rank-2 tensors according to
+\begin{equation}
+    \mathscr{C}\dot\varepsilon = \dot\varepsilon + \text{tr}(\dot\varepsilon)I.
+\end{equation}
+The dual form of the shallow stream equations adds the membrane stress tensor $M$ and the basal shear stress $\tau$ explicitly as unknowns in the problem:
+\begin{align}
+    L(M, \tau, u) = & \int_\Omega\Bigg\{\frac{1}{n + 1}hA|M|_{\mathscr{C}^{-1}}^{n + 1} + \frac{1}{m + 1}K|\tau|^{m + 1} \nonumber\\
+    & \qquad\qquad + u\cdot\left(\nabla\cdot hM - \tau - \rho_Igh\nabla s\right)\Bigg\}\ud x
+\end{align}
+The basal shear stress is part of the PDE itself for the shallow stream equations instead of a boundary condition, as they are for the full Stokes equations.
+To invert or ``dualize'' this term in the shallow stream approximation, we needed to introduce the basal shear stress explicitly as a distinct variable from the membrane stress.
+
+\textcolor{red}{Boundary conditions...}
+
+
+\section{Discretization}
+
+Roughly any conforming finite element basis is stable for the primal form of the Poisson equation.
+The most common choice is to use piecewise-continuous polynomials of a given degree $k$ on triangles, or the tensor product of polynomials on quads.
+We will refer to this basis as $CG(k)$.
+While mixed formulations have many advantages, the key challenge to overcome is that most choices of basis are unstable, i.e. the resulting linear system is singular.
+For example, using $CG(k)$ elements for the pressure and the product $CG(k)^2$ of this basis for the velocity an unstable discretization of the mixed Poisson problem.
+We can remedy this situation by enriching the velocity space with \emph{bubble} functions $B(k)$, so that the space $(CG(k) \oplus B(k))^2$ is stable.
+We could instead have used the \emph{discontinuous} space $DG(k)$ for the pressures and Raviart-Thomas elements $RT(k)$ for the velocity.
+The Raviart-Thomas basis functions have continuous normal components across element boundaries, and are thus a conforming discretization of the Sobolev space $H^{\text{div}}(\Omega)$.
+
+The shallow stream equations are formally similar to the 2D elasticity equations and thus much of the theory for discretizing the mixed elasticity system applies here.
+Stable discretization of the mixed elasticity problem is much more complicated than the mixed form of the Poisson equation because we have an additional invariant to enforce: the symmetry of the stress tensor.
+There are three viable approaches:
+\begin{enumerate}
+    \item Use continuous basis functions for both velocity and the stress tensor and enrich the stress space with bubble functions \citep{brezzi1993mixed}.
+        The basis functions for the stress tensor are taken to be symmetric.
+    \item Use discontinuous basis functions for velocity and the Raviart-Thomas or similar basis for the rows of the stress tensor.
+        Enforce the symmetry of the stress tensor weakly by addition of another Lagrange multiplier; the stress basis is not symmetric a priori \citep{arnold1984peers}.
+    \item Use the Arnold-Winther element, which is conforming for mixed elasticity but which requires many degrees of freedom \citep{arnold2002mixed}.
+\end{enumerate}
+In the demonstrations that follow, we used both bubble functions and the AW element.
+Firedrake includes an implementation of the AW element, which is relatively uncommon among software packages for finite element analysis \citep{aznaran2021transformations}.
+\textcolor{red}{Actually test it with AW...}
+
+
+\section{Demonstrations}
+
+We implemented a solver for the dual form of the SSA using the Firedrake package.
+To solve for the velocity and membrane stress tensor, we proceed in two steps.
+We start with a continuation-type approach -- make the problem linear by setting $n = 1$ to get a starting guess at the velocity and membrane stress.
+Next, we use this guess to solve the full nonlinear problem using a Newton trust region method.
+
+The trust region method has distinct advantages over the more commonly applied line search methods for problems where the second derivative can have zero degeneracies.
+The trust region method regularizes over the zero degeneracy by adding a small multiple of some positive-definite matrix \citep{conn2000trust}.
+The key point here is that the inverse of this matrix multiplies the true derivative of the Lagrangian, so despite this regularization, the approximate solutions converge to the critical point of the true, unmodified Lagrangian.
+By contrast, the conventional methods for the primal problem modify the action functional in order to eliminate the infinite singularity.
+The primal problem grows more ill-conditioned in the limit as this regularization is shrunk to zero.
+
+\subsection{Bodvarsson solution}
+
+We tested our implementation using the exact solution for a marine ice sheet described in \citet{bueler2014exact}.
+The geometry in \citet{bueler2014exact} extends from $x = 0$ to $x = L$ with the understanding that the solution is symmetric.
+We instead used a domain extending from $x = -L$ to $x = +L$ to include the dangerous point at $x = 0$ in the interior.
+
+\subsection{Synthetic ice shelf}
+
+As a more realistic test case, we used a synthetic ice shelf flowing over an ice rise.
+We made the elevation of the ice rise above sea level and its basal friction high enough to cause the ice to stagnate on top of the rise.
+Near the ice rise, both the basal sliding velocity and the strain rate approach zero, so the solver must be able to cope with the resulting degeneracy.
+
+
+\section{Discussion}
+
+\textcolor{red}{Finish this...}
+
+Using the dual formulation of the problem has several advantages.
+The stress tensor may be an input to other parts of the physics.
+For example, it is part of the source terms for both heat and damage.
+The dual formulation includes the stress explicitly as an unknown in the problem.
+Solving for it directly offers greater accuracy than computing it after the fact from the velocity field.
+Second, the dual formulation reverses the polarity of all the nonlinearities around the zero-disturbance state.
+Infinite singularities in the primal formulation, which can only be dealt with by fudging the problem itself, become zero degeneracies in the dual.
+These degeneracies are still a challenge.
+But the problem, with no modifications, is amenable to solution by continuation methods.
+We believe that trust region methods might work as well and this remains to be explored.
+
+The dual formulation does come with several disadvantages.
+The number of unknowns in the dual formulation is much greater than in the primal form, thus putting more pressure on computer memory.
+The resulting linear systems are indefinite rather than positive-definite.
+Finally, the choice of finite element basis is much more delicate.
+The dual formulation offers alternative possibilities for incorporating plastic yield as an inequality constraint.
+\textcolor{red}{Elaborate...}
+
+
+
+\pagebreak
+
+\bibliographystyle{plainnat}
+\bibliography{dual-problems.bib}
+
+\end{document}

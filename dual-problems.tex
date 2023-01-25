@@ -53,7 +53,7 @@ The flow is slow enough to be described well by the incompressible Stokes equati
     \nabla\cdot u & = 0
 \end{align}
 where $\tau$ is the deviatoric stress tensor, $p$ the pressure, and $u$ the velocity.
-To close this systme of equations, we need to prescribe a \emph{constitutive relation} between the stress tensor and the rate-of-strain tensor
+To close this system of equations, we need to prescribe a \emph{constitutive relation} between the stress tensor $\tau$ and the rate-of-strain tensor
 \begin{equation}
     \dot\varepsilon = \frac{1}{2}(\nabla u + \nabla u^*).
 \end{equation}
@@ -68,20 +68,22 @@ where $A$ is the \emph{fluidity} coefficient and $n \approx 3$ is the flow law e
 The reason for this formulation is that the early experiments on the constitutive relation for ice flow made the stress as the independent variable and measured the resulting strain rate.
 We can then invert the flow law to obtain an expression for stress in terms of strain rate that we then substitute into the momentum conservation equation.
 
-The momentum conservation and the constitutive relation together can be derived as the Euler-Lagrange equations to find a critical point of a certain action functional \citep{dukowicz2010consistent}.
-The action functional for the Stokes equations is
+The momentum conservation equations can be derived as the conditions for $u$, $p$ to be the critical point of a certain \emph{action functional} \citep{dukowicz2010consistent}.
+For the Stokes equations, the action functional is
 \begin{align}
     L(u, p) = & \int_\Omega\left(\frac{n}{n + 1}A^{-\frac{1}{n}}|\dot\varepsilon(u)|^{\frac{1}{n} + 1} - p\nabla\cdot u + \rho g\cdot u\right)\ud x \\
     & \qquad + \int_{\Gamma_b}\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\ud\gamma
 \end{align}
 where $C$ is the friction coefficient, $m$ the basal sliding exponent, and $\Gamma_b$ the lower surface of the glacier.
-In this formulation, the pressure plays the role of a Lagrange multiplier to enforce the condition that the velocity field is divergence-free.
+This functional has units of energy per unit time and can be interpreted as the rate of dissipation of thermodynamic free energy.
+In this formulation, the pressure plays the role of a multiplier for enforcing the condition that the velocity field is divergence-free.
 We must then add boundary conditions at the inflow and outflow boundaries, as well as the condition
 \begin{equation}
     u\cdot\nu = \dot b
     \label{eq:basal-dirichlet-bc}
 \end{equation}
 where $\nu$ is the unit outward-pointing normal vector and $\dot b$ is the basal melt rate.
+
 The action principle offers a way to measure how well a putative solution to the momentum conservation equation matches the true solution and it is distinct from, say, the square norm of the residual \citep{shapero2021icepack}.
 The computed value of the action functional makes sense even with the minimal degree of regularity we expect of the solution, whereas the square norm of the residual does not.
 For this reason, the existence of an action principle can be very useful in numerical implementations.
@@ -211,6 +213,21 @@ Using the deviatoric stress tensor instead requires that the velocity lives in t
 
 
 \subsection{Shallow stream approximation}
+
+For most of earth's glaciers, the thickness $H$ of the domain is much smaller than the horizontal length scale $L$.
+Using perturbation theory in the aspect ratio $H / L$, one can derive a simpler equation set that eliminates the vertical velocity and pressure from the momentum balance equation.
+The \emph{first-order} or \emph{Blatter-Pattyn} equations are an elliptic system in three space dimensions for the two horizontal velocity components.
+Unlike the Stokes equations, the first-order equations do not include any constraints or Lagrange multipliers and are thus strictly convex.
+
+Additionally, most glacier flows can be divided into one of two regimes.
+In the slow-flowing deep interior of ice sheets, most flow is by vertical deformation.
+The $x$-$z$ and $y$-$z$ components of the strain rate tensor are much larger than the other components.
+By applying a second perturbation in the sliding ratio and depth-averaging the first-order equations, one arrives at the shallow ice approximation.
+We will not discuss the shallow ice approximation here.
+By contrast, in fast-flowing ice streams and outlet glaciers at the edges of the ice sheets, nearly all flow is by horizontal extension.
+The $x$-$x$, $x$-$y$, and $y$-$y$ components of the strain rate tensor are much larger than the vertical shear components.
+Using a perturbation in the inverse of the sliding ratio and depth-averaging the first-order equations, we arrive at the shallow stream approximation (SSA).
+The shallow stream equations are an elliptic system of PDEs in two space dimensions for the two components of the depth-averaged ice velocity.
 
 Like the Stokes equations, the shallow stream approximation also has a least-action principle, and the dual form can be derived in a similar way.
 The primal form of the shallow stream approximation is

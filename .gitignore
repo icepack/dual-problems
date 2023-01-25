@@ -1,8 +1,10 @@
 ## Figures
 *.png
+*.eps
 
 ## Checkpoint files
 *.h5
+*.json
 
 
 #### Python

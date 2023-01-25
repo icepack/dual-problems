@@ -272,6 +272,29 @@ The key point here is that the inverse of this matrix multiplies the true deriva
 By contrast, the conventional methods for the primal problem modify the action functional in order to eliminate the infinite singularity.
 The primal problem grows more ill-conditioned in the limit as this regularization is shrunk to zero.
 
+\subsection{Linear ice shelf}
+
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/ice-shelf/results.eps}
+    \end{center}
+    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf test case.
+    Convergence rate obtained through a log-log fit of errors against mesh size.}
+    \label{fig:linear-ice-shelf-convergence-rate}
+\end{figure}
+
+As a first check that we implemented the dual form of the SSA correctly, we used the exact solution for a floating ice shelf with thickness
+\begin{equation}
+    h = h_0 - \delta h \cdot x / L_x
+\end{equation}
+in a domain of length $L_x$.
+With a constant value of the fluidity coefficient, the velocity in the $x$ direction is
+\begin{equation}
+    u_x = u_0 + L_x A \left(\frac{\rho g h_0}{4}\right)^n\left(1 - \left(1 - \frac{\delta h \cdot x}{h_0\cdot L_x}\right)^{n + 1}\right).
+\end{equation}
+We used a 2D domain in order to make sure that the numerical solution has no variation in the $y$ direction.
+The relative error in the $L^2$ norm of the numerical solutions has the expected asymptotic convergence rate of $\mathscr{O}(\delta x^2)$ for continuous piecewise linear velocity elements; see figure \ref{fig:linear-ice-shelf-convergence-rate}.
+
 \subsection{Bodvarsson solution}
 
 We tested our implementation using the exact solution for a marine ice sheet described in \citet{bueler2014exact}.

@@ -44,11 +44,12 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     # inflow_ids = (1,)
     # outflow_ids = (2,)
     # side_wall_ids = (3, 4)
-    inflow_ids = (1, 2, 3, 4)
+    inflow_ids = (1, 3, 4)
+    outflow_ids = (2,)
     u_in = U_exact
 
     z = firedrake.Function(Z)
-    ice_shelf.solve_dual_problem(z, h, u_in, inflow_ids)
+    ice_shelf.solve_dual_problem(z, h, u_in, inflow_ids, outflow_ids)
 
     # Check the relative accuracy of the solution
     u, M = z.split()

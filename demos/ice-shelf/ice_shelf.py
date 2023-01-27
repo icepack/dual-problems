@@ -32,7 +32,7 @@ def exact_velocity(x, inflow_velocity, inflow_thickness, thickness_change, lengt
     return firedrake.as_vector((u_0 + du, 0.0))
 
 
-def action(z, h, u_in, inflow_ids, exponent):
+def action(z, h, u_in, inflow_ids, outflow_ids, exponent):
     u, M = firedrake.split(z)
     mesh = z.ufl_domain()
     ν = firedrake.FacetNormal(mesh)
@@ -49,8 +49,22 @@ def action(z, h, u_in, inflow_ids, exponent):
 
     power = 2 * h * A / (n + 1) * M_n * dx
     constraint = inner(u, div(h * M) - 0.5 * ρ * g * grad(h**2)) * dx
-    boundary = h * inner(dot(M, ν), u_in) * ds(inflow_ids)
-    return power + constraint - boundary
+    inflow_boundary = h * inner(dot(M, ν), u_in) * ds(inflow_ids)
+
+    M_ν = dot(M, ν) - 0.5 * ρ * g * h * ν
+    outflow_boundary = inner(u, h * M_ν) * ds(outflow_ids)
+
+    α = Constant(10.0)  # TODO: figure out what this really needs to be
+    l = firedrake.CellSize(mesh)
+
+    M_ν_2 = inner(M_ν, M_ν)
+    if exponent == 1:
+        M_ν_n = M_ν_2
+    else:
+        M_ν_n = M_ν_2 ** ((n + 1) / 2)
+    penalty = 2 * α * l / (n + 1) * h * A * M_ν_n * ds(outflow_ids)
+
+    return power + constraint - inflow_boundary - outflow_boundary + penalty
 
 
 def solve_dual_problem(z, *args):

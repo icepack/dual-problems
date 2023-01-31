@@ -267,6 +267,9 @@ With a constant value of the fluidity coefficient, the velocity in the $x$ direc
 We used a 2D domain in order to make sure that the numerical solution has no variation in the $y$ direction.
 The relative error in the $L^2$ norm of the numerical solutions has the expected asymptotic convergence rate of $\mathscr{O}(\delta x^2)$ for continuous piecewise linear velocity elements; see figure \ref{fig:linear-ice-shelf-convergence-rate}.
 
+The inflow boundary conditions are natural in the dual form.
+We used a nonlinear Nitsche's method to impose the essential boundary conditions at the calving terminus; see appendix \ref{sec:boundary-conditions} for more details.
+
 \subsection{Bodvarsson solution}
 
 We tested our implementation using the exact solution for a marine ice sheet described in \citet{bueler2014exact}.
@@ -302,6 +305,47 @@ Finally, the choice of finite element basis is much more delicate.
 The dual formulation offers alternative possibilities for incorporating plastic yield as an inequality constraint.
 \textcolor{red}{Elaborate...}
 
+
+\appendix
+
+\section{Boundary conditions} \label{sec:boundary-conditions}
+
+The boundary condition at the terminus of a glacier is a Neumann-type condition on the membrane stress.
+Physically, an ice cliff experiences a pressure that pushes the terminus out, while any ocean water or ice melange imposes a back-pressure.
+The boundary condition is
+\begin{equation}
+    M\cdot\nu = p_t\nu
+\end{equation}
+where $p_t$ is the terminal pressure.
+For a glacier calving into a body of water that rises up to a relative height $f$ through the ice column,
+\begin{equation}
+    p_t = \frac{1}{2}\left(\rho_I - \rho_Wf^2\right)gh.
+\end{equation}
+A land-terminating glacier has $f = 0$, while for a floating ice shelf, $f = \rho_I / \rho_W$.
+
+The dual formulation not only changes the constitutive relations but also changes which boundary conditions are natural or essential.
+For the primal problem, boundary conditions on the normal stress at the calving terminus or along the side walls are natural, while the inflow boundary conditions are essential.
+These are reversed in the dual problem, but enforcing the essential boundary condition only on the normal component of the stress at the terminus by fixing the values of some element degrees of freedom is much more difficult than setting all components of the inflow ice velocity.
+Treating this boundary condition as a constraint, we could enforce it through a pure penalty method, which would destroy the condition number of the system, or we could try a Lagrange multiplier, but choosing finite element spaces for the multiplier is infeasible.
+Finally, we could try an augmented Lagrangian-type approach which combines the penalty and Lagrange multiplier methods.
+We could then note that the Lagrange multiplier is, in this case, exactly equal to the ice velocity.
+This final step is the idea behind \emph{Nitsche's method}.
+
+Let $\Gamma_t$ denote the calving terminus part of the domain boundary.
+For the experiments in this paper, we used the following modified action functional to enforce the boundary condition on the membrane stress at the ice terminus:
+\begin{align}
+    L_\alpha(M, \tau, u) & = L(M, \tau, u) - \int_{\Gamma_t}u\cdot h\left(M\cdot\nu - p_t\nu\right)\ud\gamma \nonumber\\
+    & \qquad + \int_{\Gamma_t}\frac{2\alpha\ell}{n + 1}hA\left|M\cdot\nu - p_t\nu\right|^{n + 1}\ud\gamma
+    \label{eq:nitsche-functional}
+\end{align}
+where $\alpha$ is a penalty parameter that we need to pick and $\ell$ is the local cell size.
+
+For linear problems, the right value of $\alpha$ can be calculated ahead of time using sharp estimates for the constant in finite element inverse inequalities \citep{warburton2003constants}.
+The situation is less clear for problems with power-law nonlinearities such as the Glen flow law.
+To our knowledge, there is no published convexity proof for a Nitsche-type method applied to problems with general power-law nonlinearities.
+We \emph{conjecture} that equation \eqref{eq:nitsche-functional} is the correct form of the action functional and that $\alpha$ can be calculated by using the Riesz-Thorin theorem applied to the original $L^2$-inverse inequalities.
+We found experimentally that all problems using the modified functional in equation \eqref{eq:nitsche-functional} were solvable.
+Nonetheless, we do not have a formal proof and this will be the subject of future work.
 
 
 \pagebreak

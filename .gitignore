@@ -2,6 +2,10 @@
 *.png
 *.eps
 
+## Meshes
+*.geo
+*.msh
+
 ## Checkpoint files
 *.h5
 *.json

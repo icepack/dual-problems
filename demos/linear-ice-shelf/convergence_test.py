@@ -4,7 +4,7 @@ import numpy as np
 import firedrake
 from firedrake import Constant
 from icepack.constants import ice_density, water_density, gravity, glen_flow_law
-import dualform
+from dualform import ice_shelf
 
 
 parser = argparse.ArgumentParser()
@@ -24,8 +24,8 @@ g = Constant(gravity)
 
 # At about -14C, with an applied stress of 100 kPa, the glacier will experience
 # a strain rate of 10 (m / yr) / km at -14C.
-τ = Constant(0.1)  # MPa
-ε = Constant(0.01) # (km / yr) / km
+τ_c = Constant(0.1)  # MPa
+ε_c = Constant(0.01) # (km / yr) / km
 
 
 def exact_velocity(x, inflow_velocity, inflow_thickness, thickness_change, length):
@@ -35,7 +35,7 @@ def exact_velocity(x, inflow_velocity, inflow_thickness, thickness_change, lengt
     lx = Constant(length)
 
     n = Constant(glen_flow_law)
-    A = ε / τ**n
+    A = ε_c / τ_c**n
     u_0 = Constant(100.0)
     h_0, dh = Constant(500.0), Constant(100.0)
     ζ = A * (ρ * g * h_0 / 4) ** n
@@ -84,18 +84,19 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     u, M = firedrake.split(z)
     kwargs = {
         "velocity": u,
-        "stress": M,
+        "membrane_stress": M,
         "thickness": h,
-        "yield_strain": Constant(0.01),
-        "yield_stress": Constant(0.1),
+        "viscous_yield_strain": ε_c,
+        "viscous_yield_stress": τ_c,
         "inflow_ids": inflow_ids,
         "outflow_ids": outflow_ids,
         "velocity_in": u_in,
     }
-    J_l = dualform.ice_shelf.action(**kwargs, exponent=1)
+    fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
+    J_l = sum(fn(**kwargs, exponent=1) for fn in fns)
     F_l = firedrake.derivative(J_l, z)
 
-    J = dualform.ice_shelf.action(**kwargs, exponent=glen_flow_law)
+    J = sum(fn(**kwargs, exponent=glen_flow_law) for fn in fns)
     F = firedrake.derivative(J, z)
 
     params = {
@@ -110,7 +111,7 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     firedrake.solve(F == 0, z, **params)
 
     # Check the relative accuracy of the solution
-    u, M = z.split()
+    u, M = z.subfunctions
     u_exact = firedrake.interpolate(U_exact, V)
     error = firedrake.norm(u - u_exact) / firedrake.norm(u_exact)
     δx = mesh.cell_sizes.dat.data_ro.min()

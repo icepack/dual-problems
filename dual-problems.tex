@@ -17,6 +17,8 @@
 %\usepackage{setspace}
 %\usepackage[titletoc,toc,title]{appendix}
 \usepackage{natbib}
+\usepackage{booktabs}
+\usepackage{multirow}
 
 %\linenumbers
 %\doublespacing
@@ -131,13 +133,12 @@ Indeed, for linear problems one form is as good as the other.
 For nonlinear constitutive relations, however, the consequences are more drastic.
 
 \subsection{Shallow stream approximation}
-
 Now we turn to ice dynamics.
 In the following, we will consider the \emph{shallow stream approximation}, which assumes that (1) the glacier flow has a small ratio of thickness to horizontal length scale and (2) the flow is a plug flow, i.e. the horizontal velocity is roughly constant with depth.
 The key unknowns are the ice velocity $u$ and the \emph{membrane stress tensor} $M$, a rank-2 tensor with units of stress or energy density that results from applying the above approximations to the full deviatoric stress tensor.
 The conservation law for membrane stress is
 \begin{equation}
-    \nabla\cdot hM - \tau - \rho gh\nabla s = 0
+    \nabla\cdot (hM) - \tau - \rho gh\nabla s = 0
     \label{eq:membrane-stress-conservation}
 \end{equation}
 where $h$ and $s$ are the ice thickness and surface elevation and $\tau$ is the basal shear stress.
@@ -246,14 +247,14 @@ The primal problem grows more ill-conditioned in the limit as this regularizatio
 
 \subsection{Linear ice shelf}
 
-\begin{figure}[h]
-    \begin{center}
-        \includegraphics[width=0.75\linewidth]{demos/linear-ice-shelf/results.pdf}
-    \end{center}
-    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf test case.
-    Convergence rate obtained through a log-log fit of errors against mesh size.}
-    \label{fig:linear-ice-shelf-convergence-rate}
-\end{figure}
+%\begin{figure}[h]
+%    \begin{center}
+%        \includegraphics[width=0.75\linewidth]{demos/linear-ice-shelf/results.pdf}
+%    \end{center}
+%    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf test case.
+%    Convergence rate obtained through a log-log fit of errors against mesh size.}
+%    \label{fig:linear-ice-shelf-convergence-rate}
+%\end{figure}
 
 As a first check that we implemented the dual form of the SSA correctly, we used the exact solution for a floating ice shelf with thickness
 \begin{equation}
@@ -269,6 +270,55 @@ The relative error in the $L^2$ norm of the numerical solutions has the expected
 
 The inflow boundary conditions are natural in the dual form.
 We used a nonlinear Nitsche's method to impose the essential boundary conditions at the calving terminus; see appendix \ref{sec:boundary-conditions} for more details.
+
+\subsection{Slab of ice flowing into the ocean}
+
+\begin{figure}[t]
+\centering
+	\includegraphics[width = 0.8\linewidth]{demos/slab/figures/marine_ice_sheet.pdf}
+	\caption{Setup for modelling a slab of ice on an inclined bed flowing into the ocean. At $x = 0$ we enforce a thickness $h = 500\,\mathrm{m}$ in order to approach a parallel slab of ice far upstream of the grounding line. The dotted line represents the sea level.}
+	\label{fig:domain_parallel_slab}
+\end{figure} 
+
+As a more challenging test in a flowline setting, we consider a slab of constant thickness ice flowing down an inclined slope and into the ocean, where it goes afloat at the grounding line, as illustrated in Figure \ref{fig:domain_parallel_slab}. We compute steady states under this configuration using the primal and dual methods described above. We set the ice thickness at $x = 0$ to $h = 500\, \mathrm{m}$ and the bedrock angle to $alpha = 0.5^\circ$. The bed is given by the expression
+%
+\begin{align}
+	b(x) = 1500 - x\tan{\alpha},
+\end{align} 
+%
+with units in meters. Regarding the material parameters of the ice, we set $n = 3$, $A = 10^{-24}\,\mathrm{Pa}^{-3}\,\mathrm{s}^{-1}$, $C = 10^{-5}\,\mathrm{Pa}\,\mathrm{m}^{-3}\mathrm{s}^3$. For this problem, we do not only solve for the velocity $u$ or the velocity-stress pair $(u,M)$, but also for the thickness and the grounding line position. We therefore complement the momentum balance equations with the mass balance equation and the flotation condition, effectively yielding a free boundary problem. Far upstream from the grounding line, the ice adopts a constant thickness regime in which gravitational forces are balanced by basal stresses. As a result, the strain rate scalar tends to zero as $x$ approaches 0 and regularisation of the primal formulation becomes necessary. 
+
+We solve the free boundary problem with a primal method that seeks the velocity and thickness in $CG(1)\times CG(1)$, and with a dual method that computes the velocity, membrane stress and thickness in the space $CG(1)\times DG(0)\times CG(1)$. For the primal method, we consider a sequence of regularisation parameters $\epsilon$ between $10^{-4}\, \mathrm{yr}^{-1}$ and $10^{-16}\,\mathrm{yr}^{-1}$. The results for the grounding line position are displayed in Table \ref{tab:slab}. Additionally, we plot the iterations of the Newton residual in Figure \ref{fig:newton-its}. We can see that not only is the dual method just as accurate as the primal method solved using the lowest value of regularisation, but the Newton solver experiences a rate of convergence which is quickly lost for low values of $\epsilon$ when used with the primal method.
+
+%\renewcommand{\arraystretch}{1.25}
+\begin{table}[t]
+\centering
+\caption{Results for the slab of ice flowing into the ocean. Values of the steady state grounding line position $x_g$ and thickness at the grounding line for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation. We also present the number of Newton iterations required to converge.}
+\label{tab:slab}
+\begin{tabular}{ccccc}
+\toprule
+solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}$ & iterations \\ 
+\midrule
+\multirow{7}{*}{primal} & $10^{-4}$ & 189.08 & 163.64 & 7  \\ 
+ & $10^{-6}$ & 203.19 & 297.90 & 6  \\ 
+ & $10^{-8}$ & 214.86 & 408.98 & 7  \\ 
+ & $10^{-10}$ & 215.19 & 412.18 & 9  \\ 
+ & $10^{-12}$ & 215.20 & 412.22 & 19  \\ 
+ & $10^{-14}$ & 215.20 & 412.22 & 17  \\ 
+ & $10^{-16}$ & 215.20 & 412.22 & 24  \\ 
+\midrule
+dual & - & 215.20 & 412.22 & 7 \\
+\bottomrule
+\end{tabular}
+\end{table} 
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=\linewidth]{demos/slab/figures/newton_its_alpha050.pdf}
+	\caption{Results for the slab of ice flowing into the ocean. Norm of the (absolute) Newton residual for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation..}
+	\label{fig:newton-its}
+\end{figure}
+
 
 \subsection{Bodvarsson solution}
 

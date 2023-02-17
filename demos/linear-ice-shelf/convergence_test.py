@@ -93,10 +93,10 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
         "velocity_in": u_in,
     }
     fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
-    J_l = sum(fn(**kwargs, exponent=1) for fn in fns)
+    J_l = sum(fn(**kwargs, flow_law_exponent=1) for fn in fns)
     F_l = firedrake.derivative(J_l, z)
 
-    J = sum(fn(**kwargs, exponent=glen_flow_law) for fn in fns)
+    J = sum(fn(**kwargs, flow_law_exponent=glen_flow_law) for fn in fns)
     F = firedrake.derivative(J, z)
 
     params = {

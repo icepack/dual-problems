@@ -1,5 +1,5 @@
 import firedrake
-from firedrake import Constant, inner, dot, tr, grad, div, dx, ds
+from firedrake import Constant, inner, dot, grad, div, dx, ds
 import icepack
 from .viscosity import power as viscous_power
 
@@ -19,8 +19,10 @@ def boundary(**kwargs):
     u, M, h = map(kwargs.get, ("velocity", "membrane_stress", "thickness"))
 
     # Get the parameters for the constitutive relation
-    ε, τ = map(kwargs.get, ("viscous_yield_strain", "viscous_yield_stress"))
-    n = Constant(kwargs["exponent"])
+    parameter_names = (
+        "viscous_yield_strain", "viscous_yield_stress", "flow_law_exponent"
+    )
+    ε, τ, n = map(kwargs.get, parameter_names)
     A = ε / τ**n
 
     # Get the boundary conditions

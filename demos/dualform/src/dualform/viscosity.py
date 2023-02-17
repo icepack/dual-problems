@@ -1,5 +1,4 @@
-import firedrake
-from firedrake import Constant, inner, dot, tr, grad, div, dx, ds
+from firedrake import inner, tr, dx
 import icepack
 
 
@@ -8,8 +7,10 @@ def power(**kwargs):
     u, M, h = map(kwargs.get, ("velocity", "membrane_stress", "thickness"))
 
     # Get the parameters for the constitutive relation
-    ε, τ = map(kwargs.get, ("viscous_yield_strain", "viscous_yield_stress"))
-    n = Constant(kwargs["exponent"])
+    parameter_names = (
+        "viscous_yield_strain", "viscous_yield_stress", "flow_law_exponent"
+    )
+    ε, τ, n = map(kwargs.get, parameter_names)
     A = ε / τ**n
 
     mesh = u.ufl_domain()

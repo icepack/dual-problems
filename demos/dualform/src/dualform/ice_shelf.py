@@ -38,7 +38,7 @@ def boundary(**kwargs):
     M_ν_n = M_ν_2 if float(n) == 1 else M_ν_2 ** ((n + 1) / 2)
 
     inflow_boundary = h * inner(dot(M, ν), u_in) * ds(inflow_ids)
-    outflow_boundary = inner(u, h * M_ν) * ds(outflow_ids)
+    outflow_boundary = h * inner(M_ν, u) * ds(outflow_ids)
 
     α = Constant(10.0)  # TODO: figure out what this really needs to be
     l = firedrake.CellSize(mesh)

@@ -137,7 +137,7 @@ In the following, we will consider the \emph{shallow stream approximation}, whic
 The key unknowns are the ice velocity $u$ and the \emph{membrane stress tensor} $M$, a rank-2 tensor with units of stress or energy density that results from applying the above approximations to the full deviatoric stress tensor.
 The conservation law for membrane stress is
 \begin{equation}
-    \nabla\cdot hM - \tau - \rho gh\nabla s = 0
+    \nabla\cdot hM + \tau - \rho gh\nabla s = 0
     \label{eq:membrane-stress-conservation}
 \end{equation}
 where $h$ and $s$ are the ice thickness and surface elevation and $\tau$ is the basal shear stress.
@@ -185,7 +185,7 @@ The preceding section suggests that we can likewise derive a dual action princip
 The dual form of the shallow stream equations adds the membrane stress tensor $M$ and the basal shear stress $\tau$ explicitly as unknowns in the problem:
 \begin{align}
     L(M, \tau, u) = & \int_\Omega\Bigg\{\frac{2}{n + 1}hA\sqrt{\frac{M\cdot M - \frac{1}{d + 1}\text{tr}(M)^2}{2}}^{n + 1} + \frac{1}{m + 1}K|\tau|^{m + 1} \nonumber\\
-    & \qquad\qquad + u\cdot\left(\nabla\cdot hM - \tau - \rho_Igh\nabla s\right)\Bigg\}\ud x
+    & \qquad\qquad + u\cdot\left(\nabla\cdot hM + \tau - \rho_Igh\nabla s\right)\Bigg\}\ud x
 \end{align}
 The basal shear stress is part of the PDE itself for the shallow stream equations instead of a boundary condition, as they are for the full Stokes equations.
 To invert or ``dualize'' this term in the shallow stream approximation, we needed to introduce the basal shear stress explicitly as a distinct variable from the membrane stress.

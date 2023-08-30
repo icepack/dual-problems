@@ -270,11 +270,20 @@ The relative error in the $L^2$ norm of the numerical solutions has the expected
 The inflow boundary conditions are natural in the dual form.
 We used a nonlinear Nitsche's method to impose the essential boundary conditions at the calving terminus; see appendix \ref{sec:boundary-conditions} for more details.
 
-\subsection{Synthetic ice shelf}
+\subsection{Gibbous ice shelf}
 
-As a more realistic test case, we used a synthetic ice shelf flowing over an ice rise.
-We made the elevation of the ice rise above sea level and its basal friction high enough to cause the ice to stagnate on top of the rise.
-Near the ice rise, both the basal sliding velocity and the strain rate approach zero, so the solver must be able to cope with the resulting degeneracy.
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/gibbous.png}
+    \end{center}
+    \caption{The thickness, velocity, and magnitude of the membrane stress tensor in steady state.}
+    \label{fig:gibbous}
+\end{figure}
+
+As a second check that the dual form of the momentum balance equation produces the same answers as the primal form, we used the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}.
+The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
+We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years, at which point the system is close to steady state.
+The results are shown in figure \ref{fig:gibbous} and are identical to those obtained from the primal form of the problem up to discretization error.
 
 
 \section{Discussion}

@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 import numpy as np
 from numpy import pi as π
@@ -13,7 +14,11 @@ from firedrake import (
     NonlinearVariationalSolver,
 )
 from icepack.constants import glen_flow_law
-import dualform
+from dualform import ice_shelf
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--output", default="gibbous.h5")
+args = parser.parse_args()
 
 # Generate and load the mesh
 R = 200e3
@@ -85,6 +90,9 @@ Z = V * Σ
 h0 = firedrake.interpolate(h_expr, Q)
 u0 = firedrake.interpolate(u_expr, V)
 
+ε_c = firedrake.Constant(0.01)
+τ_c = firedrake.Constant(0.1)
+
 # Set up the diagnostic problem and compute an initial guess by solving a
 # Picard linearization of the problem
 h = h0.copy(deepcopy=True)
@@ -93,26 +101,27 @@ u, M = firedrake.split(z)
 z.sub(0).assign(u0)
 kwargs = {
     "velocity": u,
-    "stress": M,
+    "membrane_stress": M,
     "thickness": h,
-    "yield_strain": Constant(0.01),
-    "yield_stress": Constant(0.1),
+    "viscous_yield_strain": ε_c,
+    "viscous_yield_stress": τ_c,
     "inflow_ids": (1,),
     "outflow_ids": (2,),
     "velocity_in": u0,
 }
 
-J_l = dualform.ice_shelf.action(**kwargs, exponent=1)
+fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
+J_l = sum(fn(**kwargs, flow_law_exponent=1) for fn in fns)
 F_l = firedrake.derivative(J_l, z)
 
-J = dualform.ice_shelf.action(**kwargs, exponent=glen_flow_law)
+J = sum(fn(**kwargs, flow_law_exponent=glen_flow_law) for fn in fns)
 F = firedrake.derivative(J, z)
 
 qdegree = int(glen_flow_law) + 2
 pparams = {"form_compiler_parameters": {"quadrature_degree": qdegree}}
 sparams = {
     "solver_parameters": {
-        "snes_type": "newtontr",
+        "snes_type": "newtonls",
         "ksp_type": "gmres",
         "pc_type": "lu",
         "pc_factor_mat_solver_type": "mumps",
@@ -143,3 +152,9 @@ for step in tqdm.trange(num_steps):
     prognostic_solver.solve()
     h_n.assign(h)
     diagnostic_solver.solve()
+
+u, M = z.subfunctions
+with firedrake.CheckpointFile(args.output, "w") as chk:
+    chk.save_function(u, name="velocity")
+    chk.save_function(M, name="membrane_stress")
+    chk.save_function(h, name="thickness")

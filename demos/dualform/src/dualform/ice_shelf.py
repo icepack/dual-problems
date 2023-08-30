@@ -1,5 +1,5 @@
 import firedrake
-from firedrake import Constant, inner, dot, grad, div, dx, ds
+from firedrake import Constant, inner, sym, grad, dx, ds
 import icepack
 from .viscosity import power as viscous_power
 
@@ -15,38 +15,18 @@ g = Constant(icepack.constants.gravity)
 
 
 def boundary(**kwargs):
-    # Get all the dynamical fields
+    # Get all the dynamical fields and boundary conditions
     u, M, h = map(kwargs.get, ("velocity", "membrane_stress", "thickness"))
+    outflow_ids = kwargs["outflow_ids"]
 
-    # Get the parameters for the constitutive relation
-    parameter_names = (
-        "viscous_yield_strain", "viscous_yield_stress", "flow_law_exponent"
-    )
-    ε, τ, n = map(kwargs.get, parameter_names)
-    A = ε / τ**n
-
-    # Get the boundary conditions
-    bc_keys = ("velocity_in", "inflow_ids", "outflow_ids")
-    u_in, inflow_ids, outflow_ids = map(kwargs.get, bc_keys)
-
+    # Get the unit outward normal vector to the terminus
     mesh = u.ufl_domain()
     ν = firedrake.FacetNormal(mesh)
-    d = mesh.geometric_dimension()
 
-    M_ν = dot(M, ν) - 0.5 * ρ * g * h * ν
-    M_ν_2 = inner(M_ν, M_ν)
-    M_ν_n = M_ν_2 if float(n) == 1 else M_ν_2 ** ((n + 1) / 2)
-
-    inflow_boundary = h * inner(dot(M, ν), u_in) * ds(inflow_ids)
-    outflow_boundary = h * inner(M_ν, u) * ds(outflow_ids)
-
-    α = Constant(10.0)  # TODO: figure out what this really needs to be
-    l = firedrake.CellSize(mesh)
-    penalty = 2 * α * l / (n + 1) * h * A * M_ν_n * ds(outflow_ids)
-    return penalty - inflow_boundary - outflow_boundary
+    return 0.5 * ρ * g * h**2 * inner(u, ν) * ds(outflow_ids)
 
 
 def constraint(**kwargs):
-    # Get all the dynamical fields
     u, M, h = map(kwargs.get, ("velocity", "membrane_stress", "thickness"))
-    return inner(u, div(h * M) - 0.5 * ρ * g * grad(h**2)) * dx
+    ε = sym(grad(u))
+    return (-h * inner(M, ε) - inner(0.5 * ρ * g * grad(h**2), u)) * dx

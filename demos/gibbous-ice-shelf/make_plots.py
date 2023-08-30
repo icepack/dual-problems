@@ -34,7 +34,7 @@ colors = firedrake.streamplot(u, resolution=10e3, axes=axes[1])
 fig.colorbar(colors, label="meters/year", orientation="horizontal", pad=0.04, ax=axes[1])
 
 axes[2].set_title("Membrane stress")
-elt = firedrake.FiniteElement("CG", "triangle", M.ufl_element().degree())
+elt = firedrake.FiniteElement("DG", "triangle", M.ufl_element().degree())
 S = firedrake.FunctionSpace(mesh, elt)
 m = firedrake.interpolate(1e3 * sqrt(inner(M, M)), S)
 colors = firedrake.tripcolor(m, axes=axes[2])

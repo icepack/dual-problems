@@ -80,11 +80,11 @@ for h in hs:
 u_expr = sum(us)
 
 # Create some function spaces
-cg1 = firedrake.FiniteElement("CG", "triangle", 1)
-b3 = firedrake.FiniteElement("B", "triangle", 3)
-Q = firedrake.FunctionSpace(mesh, cg1)
-V = firedrake.VectorFunctionSpace(mesh, cg1)
-Σ = firedrake.TensorFunctionSpace(mesh, cg1 + b3, symmetry=True)
+cg = firedrake.FiniteElement("CG", "triangle", 1)
+dg = firedrake.FiniteElement("DG", "triangle", 0)
+Q = firedrake.FunctionSpace(mesh, cg)
+V = firedrake.VectorFunctionSpace(mesh, cg)
+Σ = firedrake.TensorFunctionSpace(mesh, dg, symmetry=True)
 Z = V * Σ
 
 h0 = firedrake.interpolate(h_expr, Q)
@@ -105,9 +105,7 @@ kwargs = {
     "thickness": h,
     "viscous_yield_strain": ε_c,
     "viscous_yield_stress": τ_c,
-    "inflow_ids": (1,),
     "outflow_ids": (2,),
-    "velocity_in": u0,
 }
 
 fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
@@ -118,7 +116,11 @@ J = sum(fn(**kwargs, flow_law_exponent=glen_flow_law) for fn in fns)
 F = firedrake.derivative(J, z)
 
 qdegree = int(glen_flow_law) + 2
-pparams = {"form_compiler_parameters": {"quadrature_degree": qdegree}}
+bc = firedrake.DirichletBC(Z.sub(0), u0, (1,))
+pparams = {
+    #"form_compiler_parameters": {"quadrature_degree": qdegree},
+    "bcs": bc,
+}
 sparams = {
     "solver_parameters": {
         "snes_type": "newtonls",

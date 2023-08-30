@@ -52,11 +52,11 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     mesh = firedrake.RectangleMesh(nx, nx, Lx, Ly, diagonal="crossed")
     d = mesh.geometric_dimension()
 
-    cg_k = firedrake.FiniteElement("CG", "triangle", args.degree)
-    b_k = firedrake.FiniteElement("B", "triangle", args.degree + 2)
-    Q = firedrake.FunctionSpace(mesh, cg_k)
-    V = firedrake.VectorFunctionSpace(mesh, cg_k)
-    Σ = firedrake.TensorFunctionSpace(mesh, cg_k + b_k, symmetry=True)
+    cg = firedrake.FiniteElement("CG", "triangle", args.degree)
+    dg = firedrake.FiniteElement("DG", "triangle", args.degree - 1)
+    Q = firedrake.FunctionSpace(mesh, cg)
+    V = firedrake.VectorFunctionSpace(mesh, cg)
+    Σ = firedrake.TensorFunctionSpace(mesh, dg, symmetry=True)
     Z = V * Σ
 
     # Create the thickness field and the exact solution for the velocity
@@ -72,12 +72,9 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     lx = firedrake.Constant(Lx)
     h = firedrake.interpolate(h_0 - dh * x[0] / lx, Q)
 
-    # TODO: Fix this! Use Nitsche on the side walls
-    # inflow_ids = (1,)
-    # outflow_ids = (2,)
-    # side_wall_ids = (3, 4)
-    inflow_ids = (1, 3, 4)
+    inflow_ids = (1,)
     outflow_ids = (2,)
+    side_wall_ids = (3, 4)
     u_in = U_exact
 
     z = firedrake.Function(Z)
@@ -88,9 +85,7 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
         "thickness": h,
         "viscous_yield_strain": ε_c,
         "viscous_yield_stress": τ_c,
-        "inflow_ids": inflow_ids,
         "outflow_ids": outflow_ids,
-        "velocity_in": u_in,
     }
     fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
     J_l = sum(fn(**kwargs, flow_law_exponent=1) for fn in fns)
@@ -99,13 +94,17 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     J = sum(fn(**kwargs, flow_law_exponent=glen_flow_law) for fn in fns)
     F = firedrake.derivative(J, z)
 
+    inflow_bc = firedrake.DirichletBC(Z.sub(0), u_in, inflow_ids)
+    side_wall_bc = firedrake.DirichletBC(Z.sub(0).sub(1), 0, side_wall_ids)
+
     params = {
         "solver_parameters": {
             "snes_type": "newtontr",
             "ksp_type": "gmres",
             "pc_type": "lu",
             "pc_factor_mat_solver_type": "mumps",
-        }
+        },
+        "bcs": [inflow_bc, side_wall_bc],
     }
     firedrake.solve(F_l == 0, z, **params)
     firedrake.solve(F == 0, z, **params)

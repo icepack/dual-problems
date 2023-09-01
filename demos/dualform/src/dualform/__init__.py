@@ -1,1 +1,1 @@
-from . import ice_shelf
+from . import ice_shelf, ice_stream

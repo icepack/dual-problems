@@ -233,18 +233,37 @@ Firedrake includes an implementation of the AW element, which is relatively unco
 
 \section{Demonstrations}
 
-We implemented a solver for the dual form of the SSA using the Firedrake package.
-To solve for the velocity and membrane stress tensor, we proceed in two steps.
-We start with a continuation-type approach -- make the problem linear by setting $n = 1$ to get a starting guess at the velocity and membrane stress.
-Next, we use this guess to solve the full nonlinear problem using a Newton trust region method.
+We implemented a solver for the dual form of the SSA using the Firedrake package \citep{FiredrakeUserManual}.
+To solve for the velocity, membrane stress tensor, and basal stress vector, we used a continuation approach, starting with flow law and sliding law exponents both set to 1 and proceeding in increments towards their assumed true values.
+% TODO: More details on cotinuation somewhere, possibly not here
 
-The trust region method has distinct advantages over the more commonly applied line search methods for problems where the second derivative can have zero degeneracies.
-The trust region method regularizes over the zero degeneracy by adding a small multiple of some positive-definite matrix \citep{conn2000trust}.
-The key point here is that the inverse of this matrix multiplies the true derivative of the Lagrangian, so despite this regularization, the approximate solutions converge to the critical point of the true, unmodified Lagrangian.
-By contrast, the conventional methods for the primal problem modify the action functional in order to eliminate the infinite singularity.
-The primal problem grows more ill-conditioned in the limit as this regularization is shrunk to zero.
+Here we will present the verification exercises that we used to evaluate the correctness of our implementation, as well as demonstrations of the new capabilities of the dual form compared to the primal form.
 
-\subsection{Linear ice shelf}
+Verification is the process of demonstrating that we have correctly specified the dual form of the shallow stream equations and that we can solve them accurately.
+A typical verification experiment would be to first find an analytical solution of the physics problem of interest and then calculate the misfit between the exact and numerical solutions as the mesh is refined.
+Finite element theory predicts that, as the mesh spacing $\delta x$ is decreased, the misfits decrease asymptotically as $\delta x^p$ for some exponent $p$ depending on the norm, the polynomial order of the basis, and the problem.
+We cannot actually evaluate the limit as $\delta x \to 0$.
+The best we can do is use a sequence of refined meshes and compute a log-log fit of the errors against the mesh spacing.
+If the slope in log-log space of the misfit-mesh spacing curve is close to the expected power $p$, then we have gained some confidence that we have implemented the physics model correctly.
+Note that we cannot prove definitively that the implementation is correct; we can only try to find the most rigorous tests we can that might reveal the presence of an error.
+% Except for that student of Andrew Appell who did exactly that...
+
+Comparing numerical results against analytically solvable test cases is vital for catching bugs in the code.
+Numerical methods do not always fail discretely, so these bugs can be more subtle than, say, the solver crashing.
+For example, a common mistake might be to evaluate the viscosity of ice as some constant times \texttt{epsilon ** (-2 / 3)} where \texttt{epsilon} is the absolute value of the strain rate.
+In Fortran and C, integer division gives integer results, so this expression would evaluate to \texttt{epsilon ** 0} which is equal to 1.
+(By contrast, in Python, integer division can give a floating point result.)
+The simulation would describe a linear viscous fluid flow, whereas glacier flow is a nonlinear shear-thinning fluid flow.
+The results would still look like a viscous fluid flow and thus might seem fine in the eyeball norm.
+Comparing them to an analytical solution, however, would at least reveal the presence of a problem.
+
+The verification experiments that we present below are all taken from those used to test the implementation of the primal form of the SSA in the icepack package \citep{shapero2021icepack}.
+The linear ice shelf and ice stream experiments are analytically solvable.
+The gibbous ice shelf and \textcolor{red}{MISMIP+} test cases are not analytically solvable.
+Instead, we take it on faith that the solvers in icepack are implemented correctly, and check that the dual form solver we present here reproduces the same results as icepack to within discretization error.
+
+
+\subsection{Linear ice shelf} \label{sec:linear-ice-shelf}
 
 \begin{figure}[h]
     \begin{center}
@@ -259,18 +278,40 @@ As a first check that we implemented the dual form of the SSA correctly, we used
 \begin{equation}
     h = h_0 - \delta h \cdot x / L_x
 \end{equation}
-in a domain of length $L_x$.
+in a domain of length $L_x = 20$km.
 With a constant value of the fluidity coefficient, the velocity in the $x$ direction is
 \begin{equation}
     u_x = u_0 + L_x A \left(\frac{\rho g h_0}{4}\right)^n\left(1 - \left(1 - \frac{\delta h \cdot x}{h_0\cdot L_x}\right)^{n + 1}\right).
 \end{equation}
-We used a 2D domain in order to make sure that the numerical solution has no variation in the $y$ direction.
-The relative error in the $L^2$ norm of the numerical solutions has the expected asymptotic convergence rate of $\mathscr{O}(\delta x^2)$ for continuous piecewise linear velocity elements; see figure \ref{fig:linear-ice-shelf-convergence-rate}.
+We used a 2D domain in order to make sure that the numerical solution, like the exact solution, has no variation in the $y$ direction.
+We tested meshes with between 16 and 256 cells to a side and we used both degree-1 and degree-2 finite elements for the velocity.
+The relative errors in the $L^2$ norm have the expected asymptotic convergence rates of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic; see figure \ref{fig:linear-ice-shelf-convergence-rate}.
 
-The inflow boundary conditions are natural in the dual form.
-We used a nonlinear Nitsche's method to impose the essential boundary conditions at the calving terminus; see appendix \ref{sec:boundary-conditions} for more details.
+While finite element theory can predict the asymptotic convergence rates, it does not immediately give estimates of what the constant prefactor should be except in the most trivial of linear problems.
+The constants can only be evaluated empirically.
+In particular, the theory predicts that quadratic elements converge faster asymptotically than linear elements, but it cannot tell us how many cells per side are necessary for each to achieve the same accuracy.
+Figure \ref{fig:linear-ice-shelf-convergence-rate} shows that a numerical solution obtained with only 16 cells per side and quadratic elements is roughly as accurate as a solution with 256 cells per side and linear elements.
 
-\subsection{Gibbous ice shelf}
+\subsection{Linear ice stream} \label{sec:linear-ice-stream}
+
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/linear-ice-stream/results.pdf}
+    \end{center}
+    \caption{Relative $L^2$-norm errors for approximate solutions to the manufactured ice stream test case.}
+    \label{fig:linear-ice-stream-convergence-rate}
+\end{figure}
+
+We perform a similar experiment as the linear ice shelf but we add basal friction and make the glacier thickness slightly above floating.
+Solving the resulting boundary value problem analytically in the presence of friction is now much more difficult.
+Instead, we used the method of manufactured solutions -- we picked the ice velocity, thickness, and surface elevation, and generated a friction coefficient that would make this velocity an exact solution.
+To generate this friction coefficient we used the computer algebra system sympy \citep{sympy}.
+We used the same meshes and geometry as the ice shelf test case.
+Again, the numerical solutions converge with the expected accuracy of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic elements.
+The coarsest solution with quadratic elements likewise has comparable numerical errors to the finest solution with linear elements.
+See figure \ref{fig:linear-ice-stream-convergence-rate}.
+
+\subsection{Gibbous ice shelf} \label{sec:gibbous-ice-shelf}
 
 \begin{figure}[t]
     \begin{center}

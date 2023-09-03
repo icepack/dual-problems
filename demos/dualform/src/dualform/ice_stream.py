@@ -48,5 +48,6 @@ def constraint(**kwargs):
         "velocity", "membrane_stress", "basal_stress", "thickness", "surface"
     )
     u, M, τ, h, s = map(kwargs.get, field_names)
+    f = kwargs.get("floating", Constant(1.0))
     ε = sym(grad(u))
-    return (-h * inner(M, ε) + inner(τ - ρ_I * g * h * grad(s), u)) * dx
+    return (-h * inner(M, ε) + inner(f * τ - ρ_I * g * h * grad(s), u)) * dx

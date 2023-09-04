@@ -236,6 +236,8 @@ Firedrake includes an implementation of the AW element, which is relatively unco
 We implemented a solver for the dual form of the SSA using the Firedrake package \citep{FiredrakeUserManual}.
 To solve for the velocity, membrane stress tensor, and basal stress vector, we used a continuation approach, starting with flow law and sliding law exponents both set to 1 and proceeding in increments towards their assumed true values.
 % TODO: More details on cotinuation somewhere, possibly not here
+% TODO: Maybe we don't use continuation at all and just use inexact Jacobians instead
+% TODO: Maybe we use Rosenbrock schemes with an approximate Jacobian and don't solve the momentum balance equation exactly and that's even dumber but still fine
 
 Here we will present the verification exercises that we used to evaluate the correctness of our implementation, as well as demonstrations of the new capabilities of the dual form compared to the primal form.
 
@@ -325,6 +327,28 @@ As a second check that the dual form of the momentum balance equation produces t
 The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
 We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years, at which point the system is close to steady state.
 The results are shown in figure \ref{fig:gibbous} and are identical to those obtained from the primal form of the problem up to discretization error.
+
+\subsection{MISMIP+} \label{sec:mismip}
+
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/mismip/mismip.pdf}
+    \end{center}
+    \caption{The thickness, velocity, membrane stress magnitude, and basal stress for the steady state of the MISMIP+ test case.}
+    \label{fig:mismip}
+\end{figure}
+
+Here we perform a spin-up to steady state of the MISMIP+ test case \citep{asay2016experimental}.
+We used the Weertman sliding law, i.e. $m = 3$, instead of the modifications that assume a plastic rheology at higher sliding speeds.
+With the primal solver in icepack, we were unable to use the Weertman sliding law for the entire duration of the simulation because the ice thicknesses were so small as to crash the momentum balance solver.
+The dual form does have its own drawbacks.
+For example, in the early rapid adjustment stages, we were limited to taking timesteps on the order of 2.5 years.
+Longer timesteps, which are desirable for computational efficiency, could then make the momentum balance solver crash with the options we used.
+We could in principle remedy this issue with different solver options or more continuation steps.
+
+In summary, it appears as if solvers for the dual form can still converge even when given values of the input data that would make solvers for the primal form crash.
+Achieving this convergence may require more coaxing in the form of shorter timesteps, more regularized Jacobians, or more numerical continuation steps.
+We regard this tradeoff as a net positive if primal solvers cannot be made to converge even with substantial encouragement.
 
 
 \section{Discussion}

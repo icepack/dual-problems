@@ -481,7 +481,96 @@ We use the space $CG(k)^d$ of continuous piecewise-polynomial vector fields for 
 \section{Solution by Newton-type methods}
 \label{app:solution}
 
-\textcolor{red}{write it}
+The finite element method reduces the infinite-dimensional optimization problems that we have described into finite-dimensional ones.
+All that remains is to decide how to solve the resulting finite-dimensional optimization problems.
+
+We can approximate a minimizer for the primal form of the action functional using standard Newton line search algorithms \citep{shapero2021icepack}.
+But the primal form of the momentum balance equation has singularities in the limit as the strain rate tensor approaches 0.
+When we calculate the derivative of the action, these singularities are multiplied by 0 in such a way that they become removable, i.e. they have a finite limit.
+In floating-point arithmetic, however, evaluating an expression with a removable singularity does not always produce the right limit.
+Moreover, the second derivative of the action does have genuine infinite singularities, and we need to be able to calculate the second derivative or some approximation to it in order to use Newton-type methods.
+The usual remedy is to introduce a smoothing factor $\delta$ into the action that rounds off the behavior around $\dot\varepsilon = 0$.
+Regularizing the action functional makes the minimization problem solvable but very ill-conditioned.
+Additionally, for some simulations the ice thickness can go to zero, which makes the minimization problem difficult or impossible to solve numerically.
+The usual remedy for this is to clamp the thickness from below at some fixed value, say 1m or 10m.
+Where the ice thickness approaches zero, usually the strain rate does as well.
+In these scenarios, we are certain to encounter the worst behavior possible associated with the singularity at zero strain rate.
+
+The dual form, on the other hand, does not have infinite singularities around zero strain rate.
+Instead, the action functional has \emph{degeneracies} -- terms that go to zero where, in a nicer problem, they would stay strictly positive.
+(See again figure \ref{fig:primal-vs-dual}.)
+Degeneracies are not good news either.
+In order to use a Newton-type algorithm to find a critical point of the dual action $L$, we compute a search direction by solving the linear system
+\begin{equation}
+    d^2L\cdot\left(\begin{matrix} v \\ N \\ \sigma\end{matrix}\right) = -dL.
+\end{equation}
+We know that the second derivative of $L$ has the structure of a saddle-point matrix.
+Usually one assumes that certain blocks of this matrix are symmetric and strictly positive-definite in order to guarantee the existence of a solution \citep{boffi2013mixed}.
+When the problem is degenerate, we no longer have these guarantees.
+We still know that $L$ has a unique saddle point because it is \emph{strictly} convex with respect to $M$ and $\tau$, the problem is that it fails to be \emph{strongly} or \emph{uniformly} convex.
+There are workable remedies for this issue that do not degrade the conditioning of the problem to the same extent as regularization does for the primal problem.
+
+\subsection{Perturbed Hessian}
+
+Newton's method with line search guarantees second-order convergence for nice problems.
+In the event that the second derivative has degeneracies, we can instead try to compute a search direction b solving the perturbed system
+\begin{equation}
+    \left(d^2L + \lambda\cdot d^2G\right)\left(\begin{matrix} v \\ N \\ \sigma\end{matrix}\right) = -dL
+    \label{eq:regularized-newton-step}
+\end{equation}
+where $G$ is some strongly convex function of $M$ and $\tau$ and $\lambda$ is a small parameter.
+For example, one reasonable choice is to take
+\begin{equation}
+    G = \frac{1}{2}\int_\Omega\left(\max\{h, h_{\text{min}}\}A'|M|_{\mathscr{A}}^2 + K'|\tau|^2\right)dx
+\end{equation}
+for some constants $A'$, $K'$ having the right units and for some minimum thickness $h_{\text{min}}$ on the order of 1-10m.
+The addition of $d^2G$ regularizes the search directions.
+It does \emph{not} regularize or perturb what solution we are looking for, only how we look for it.
+
+Regularizing the search directions likely sacrifices the second-order convergence rate of Newton's method.
+It does, however, achieve faster convergence than typical first-order quasi-Newton methods like BFGS \citep{nocedal2006numerical}.
+
+\subsection{Trust region methods}
+
+We can also abandon the line search idea entirely and use trust region methods.
+For a detailed discussion of trust region methods, see \citet{nocedal2006numerical} or \citet{conn2000trust}.
+Trust region methods instead adaptively select $\lambda$ in equation \eqref{eq:regularized-newton-step} to be as small as possible while approaching the critical point of the dual action as rapdily as possible.
+One of the key advantages of trust region methods is that they can cope well with functional that have degenerated second derivatives while still achieving superlinear or even quadratic convergence rates.
+
+\subsection{Linearly implicit schemes}
+
+Finally, we might recognize that the momentum balance equation is only one part of the overall dynamics.
+For a time-dependent simulation these are certain to include the mass balance equation, and they may include heat flow or other effects as well.
+The overall structure including mass balance is a differential-algebraic equation:
+\begin{align}
+    \partial_th & = F(h; u, \ldots) \\
+    0 & = dL(u, M, \tau; h, \ldots)
+\end{align}
+A typical timestepping scheme to solve these equations proceeds by (1) updating the thickness using the mass balance equation, and then (2) solving the momentum balance equation with the new value of the thickness:
+\begin{align}
+    \frac{h_{k + 1} - h_k}{\delta t} & = F(h_{k + 1}; u_k, \ldots) \\
+    0 & = dL(u_{k + 1}, M_{k + 1}, \tau_{k + 1}; h_{k + 1}, \ldots)
+\end{align}
+Although it requires more work, we could solve the mass and momentum balance equations simultaneously:
+\begin{align}
+    \frac{h_{k + 1} - h_k}{\delta t} & = F(h_{k + 1}; u_{k + 1}, \ldots) \\
+    0 & = dL(u_{k + 1}, M_{k + 1}, \tau_{k + 1}; h_{k + 1}, \ldots)
+\end{align}
+The time discretization here is the simplest first-order backward differencing scheme.
+This scheme is L-stable, which is desirable for problems like glacier flow that are predominantly dissipative \citep{wanner1996solving}.
+One could also use more sophisticated implicit Runge-Kutta methods.
+
+The idea of \emph{linearly implicit} or \emph{Rosenbrock} schemes is that, rather than solve a nonlinear equation to convergence in every timestep, we can instead do a single iteration of Newton's method \citep{wanner1996solving}.
+The thinking behind this approach is that, if the timestep is not too large, the first Newton iteration usually does the bulk of the error reduction.
+This is not as accurate as solving the nonlinear system as precisely as possible.
+But if the original nonlinear scheme converges asymptotically as $\delta t^p$ then the linearly implicit scheme does too.
+In other words, the ``lazy'' approach may do worse, but only by a constant factor -- the convergence rate is the same.
+Equally as important, linearly implicit schemes retain all of the favorable stability properties of fully implicit methods.
+
+We still have not answered how linearly implicit schemes are a solution to the degeneracy issue.
+The key trick is that \textbf{one does not need to use the exact linearization in a linearly implicit scheme} in order to achieve the same convergence rate.
+For example, we can use the perturbation from equation \eqref{eq:regularized-newton-step}.
+
 
 
 \pagebreak

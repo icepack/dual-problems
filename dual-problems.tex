@@ -317,15 +317,15 @@ The gibbous ice shelf and MISMIP+ test cases are not analytically solvable.
 Instead, we take it on faith that the solvers in icepack are implemented correctly, and check that the dual form solver we present here reproduces the same results as icepack to within discretization error.
 
 
-\subsection{Linear ice shelf} \label{sec:linear-ice-shelf}
+\subsection{Linear ice shelf and ice stream} \label{sec:linear-ice-shelf}
 
 \begin{figure}[h]
     \begin{center}
-        \includegraphics[width=0.75\linewidth]{demos/linear-ice-shelf/results.pdf}
+        \includegraphics[width=0.75\linewidth]{demos/convergence-tests/results.pdf}
     \end{center}
-    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf test case.
+    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf (left) and ice stream (right) test cases.
     Convergence rate obtained through a log-log fit of errors against mesh size.}
-    \label{fig:linear-ice-shelf-convergence-rate}
+    \label{fig:linear-glacier-convergence-rate}
 \end{figure}
 
 As a first check that we implemented the dual form of the SSA correctly, we used the exact solution for a floating ice shelf with thickness
@@ -339,31 +339,19 @@ With a constant value of the fluidity coefficient, the velocity in the $x$ direc
 \end{equation}
 We used a 2D domain in order to make sure that the numerical solution, like the exact solution, has no variation in the $y$ direction.
 We tested meshes with between 16 and 256 cells to a side and we used both degree-1 and degree-2 finite elements for the velocity.
-The relative errors in the $L^2$ norm have the expected asymptotic convergence rates of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic; see figure \ref{fig:linear-ice-shelf-convergence-rate}.
+The relative errors in the $L^2$ norm have the expected asymptotic convergence rates of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic; see figure \ref{fig:linear-glacier-convergence-rate}.
+
+Next, we performed an experiment on the same geometry and meshes but with basal friction and the ice thickness above flotation.
+Solving the resulting boundary value problem analytically in the presence of friction is now much more difficult.
+Instead, we used the method of manufactured solutions -- we picked the ice velocity, thickness, and surface elevation, and generated a friction coefficient that would make this velocity an exact solution.
+To generate this friction coefficient we used the computer algebra system sympy \citep{sympy}.
+The numerical solutions again converge with the expected accuracy of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic elements.
+See figure \ref{fig:linear-glacier-convergence-rate}.
 
 While finite element theory can predict the asymptotic convergence rates, it does not immediately give estimates of what the constant prefactor should be except in the most trivial of linear problems.
 The constants can only be evaluated empirically.
 In particular, the theory predicts that quadratic elements converge faster asymptotically than linear elements, but it cannot tell us how many cells per side are necessary for each to achieve the same accuracy.
-Figure \ref{fig:linear-ice-shelf-convergence-rate} shows that a numerical solution obtained with only 16 cells per side and quadratic elements is roughly as accurate as a solution with 256 cells per side and linear elements.
-
-\subsection{Linear ice stream} \label{sec:linear-ice-stream}
-
-\begin{figure}[h]
-    \begin{center}
-        \includegraphics[width=0.75\linewidth]{demos/linear-ice-stream/results.pdf}
-    \end{center}
-    \caption{Relative $L^2$-norm errors for approximate solutions to the manufactured ice stream test case.}
-    \label{fig:linear-ice-stream-convergence-rate}
-\end{figure}
-
-We perform a similar experiment as the linear ice shelf but we add basal friction and make the glacier thickness slightly above floating.
-Solving the resulting boundary value problem analytically in the presence of friction is now much more difficult.
-Instead, we used the method of manufactured solutions -- we picked the ice velocity, thickness, and surface elevation, and generated a friction coefficient that would make this velocity an exact solution.
-To generate this friction coefficient we used the computer algebra system sympy \citep{sympy}.
-We used the same meshes and geometry as the ice shelf test case.
-Again, the numerical solutions converge with the expected accuracy of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic elements.
-The coarsest solution with quadratic elements likewise has comparable numerical errors to the finest solution with linear elements.
-See figure \ref{fig:linear-ice-stream-convergence-rate}.
+Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution obtained with only 16 cells per side and quadratic elements is roughly as accurate as a solution with 256 cells per side and linear elements.
 
 \subsection{Gibbous ice shelf} \label{sec:gibbous-ice-shelf}
 

@@ -2,8 +2,6 @@ import os
 import argparse
 import ast
 import numpy as np
-import sys
-sys.path.append("../VisCoSo/subglacialcavity/postprocess/jfm_paper")
 from figure_settings import pgf_with_latex
 from functions import path_name, get_default_parser, recover_coordinates_1D
 

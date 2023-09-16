@@ -17,12 +17,16 @@ from icepack.constants import glen_flow_law
 from dualform import ice_shelf
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--output", default="gibbous.h5")
+parser.add_argument("--input")
+parser.add_argument("--resolution", type=float, default=5e3)
+parser.add_argument("--final-time", type=float, default=400.0)
+parser.add_argument("--num-steps", type=int, default=200)
+parser.add_argument("--output", default="steady-state.h5")
 args = parser.parse_args()
 
 # Generate and load the mesh
 R = 200e3
-δx = 5e3
+δx = args.resolution
 
 geometry = pygmsh.built_in.Geometry()
 
@@ -79,7 +83,7 @@ for h in hs:
 
 u_expr = sum(us)
 
-# Create some function spaces
+# Create some function spaces and some fields
 cg = firedrake.FiniteElement("CG", "triangle", 1)
 dg = firedrake.FiniteElement("DG", "triangle", 0)
 Q = firedrake.FunctionSpace(mesh, cg)
@@ -90,15 +94,44 @@ Z = V * Σ
 h0 = firedrake.interpolate(h_expr, Q)
 u0 = firedrake.interpolate(u_expr, V)
 
+h = h0.copy(deepcopy=True)
+z = firedrake.Function(Z)
+
+# Create some physical constants. Rather than specify the fluidity factor `A`
+# in Glen's flow law, we instead define it in terms of a stress scale `τ_c` and
+# a strain rate scale `ε_c` as
+#
+#     A = ε_c / τ_c ** n
+#
+# where `n` is the Glen flow law exponent. This way, we can do a continuation-
+# type method in `n` while preserving dimensional correctness.
 ε_c = firedrake.Constant(0.01)
 τ_c = firedrake.Constant(0.1)
 
+# If the we passed in some input data, project the inputs into our fn spaces
+if args.input:
+    with firedrake.CheckpointFile(args.input, "r") as chk:
+        input_mesh = chk.load_mesh()
+        idx = len(chk.h5pyfile["timesteps"]) - 1
+        u_input = chk.load_function(input_mesh, "velocity", idx=idx)
+        M_input = chk.load_function(input_mesh, "membrane_stress", idx=idx)
+        h_input = chk.load_function(input_mesh, "thickness", idx=idx)
+
+    u_projected = firedrake.project(u_input, V)
+    #M_projected = firedrake.project(M_input, Σ)
+    h_projected = firedrake.project(h_input, Q)
+
+    z.sub(0).assign(u_projected)
+    #z.sub(1).assign(M_projected)
+    h0.assign(h_projected)
+    h.assign(h_projected)
+else:
+    z.sub(0).assign(u0)
+
 # Set up the diagnostic problem and compute an initial guess by solving a
-# Picard linearization of the problem
-h = h0.copy(deepcopy=True)
-z = firedrake.Function(Z)
+# Picard linearization of the problem TODO: check if we still need this when
+# there's input data
 u, M = firedrake.split(z)
-z.sub(0).assign(u0)
 kwargs = {
     "velocity": u,
     "membrane_stress": M,
@@ -139,9 +172,7 @@ diagnostic_solver.solve()
 # Set up the prognostic problem and solver
 h_n = h.copy(deepcopy=True)
 φ = firedrake.TestFunction(Q)
-final_time = 400.0
-num_steps = 200
-dt = firedrake.Constant(final_time / num_steps)
+dt = firedrake.Constant(args.final_time / args.num_steps)
 flux_cells = ((h - h_n) / dt * φ - inner(h * u, grad(φ))) * dx
 ν = firedrake.FacetNormal(mesh)
 flux_in = h0 * firedrake.min_value(0, inner(u, ν)) * φ * ds
@@ -150,13 +181,22 @@ G = flux_cells + flux_in + flux_out
 prognostic_problem = NonlinearVariationalProblem(G, h)
 prognostic_solver = NonlinearVariationalSolver(prognostic_problem)
 
-for step in tqdm.trange(num_steps):
-    prognostic_solver.solve()
-    h_n.assign(h)
-    diagnostic_solver.solve()
-
-u, M = z.subfunctions
+# Run the simulation and write the complete output to disk
 with firedrake.CheckpointFile(args.output, "w") as chk:
-    chk.save_function(u, name="velocity")
-    chk.save_function(M, name="membrane_stress")
-    chk.save_function(h, name="thickness")
+    u, M = z.subfunctions
+    chk.save_function(u, name="velocity", idx=0)
+    chk.save_function(M, name="membrane_stress", idx=0)
+    chk.save_function(h, name="thickness", idx=0)
+
+    for step in tqdm.trange(args.num_steps):
+        prognostic_solver.solve()
+        h_n.assign(h)
+        diagnostic_solver.solve()
+
+        u, M = z.subfunctions
+        chk.save_function(u, name="velocity", idx=step + 1)
+        chk.save_function(M, name="membrane_stress", idx=step + 1)
+        chk.save_function(h, name="thickness", idx=step + 1)
+
+    timesteps = np.linspace(0.0, args.final_time, args.num_steps + 1)
+    chk.h5pyfile.create_dataset("timesteps", data=timesteps)

@@ -21,6 +21,7 @@ parser.add_argument("--input")
 parser.add_argument("--resolution", type=float, default=5e3)
 parser.add_argument("--final-time", type=float, default=400.0)
 parser.add_argument("--num-steps", type=int, default=200)
+parser.add_argument("--calving-freq", type=float, default=0.0)
 parser.add_argument("--output", default="steady-state.h5")
 args = parser.parse_args()
 
@@ -129,44 +130,61 @@ else:
     z.sub(0).assign(u0)
 
 # Set up the diagnostic problem and compute an initial guess by solving a
-# Picard linearization of the problem TODO: check if we still need this when
-# there's input data
+# Picard linearization of the problem
 u, M = firedrake.split(z)
-kwargs = {
+fields = {
     "velocity": u,
     "membrane_stress": M,
     "thickness": h,
+}
+
+h_min = firedrake.Constant(1.0)
+rfields = {
+    "velocity": u,
+    "membrane_stress": M,
+    "thickness": firedrake.max_value(h_min, h),
+}
+
+params = {
     "viscous_yield_strain": ε_c,
     "viscous_yield_stress": τ_c,
     "outflow_ids": (2,),
 }
 
 fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
-J_l = sum(fn(**kwargs, flow_law_exponent=1) for fn in fns)
-F_l = firedrake.derivative(J_l, z)
+L_1 = sum(fn(**fields, **params, flow_law_exponent=1) for fn in fns)
+F_1 = firedrake.derivative(L_1, z)
 
-J = sum(fn(**kwargs, flow_law_exponent=glen_flow_law) for fn in fns)
-F = firedrake.derivative(J, z)
+L = sum(fn(**fields, **params, flow_law_exponent=glen_flow_law) for fn in fns)
+F = firedrake.derivative(L, z)
+
+L_r = sum(fn(**rfields, **params, flow_law_exponent=glen_flow_law) for fn in fns)
+F_r = firedrake.derivative(L_r, z)
+J_r = firedrake.derivative(F_r, z)
 
 qdegree = int(glen_flow_law) + 2
 bc = firedrake.DirichletBC(Z.sub(0), u0, (1,))
-pparams = {
+problem_params = {
     #"form_compiler_parameters": {"quadrature_degree": qdegree},
     "bcs": bc,
 }
-sparams = {
+solver_params = {
     "solver_parameters": {
         "snes_type": "newtonls",
         "ksp_type": "gmres",
         "pc_type": "lu",
         "pc_factor_mat_solver_type": "mumps",
+        "snes_rtol": 1e-2,
     },
 }
-firedrake.solve(F_l == 0, z, **pparams, **sparams)
+firedrake.solve(F_1 == 0, z, **problem_params, **solver_params)
+
+# Create a regularized Lagrangian
 
 # Set up the diagnostic problem and solver
-diagnostic_problem = NonlinearVariationalProblem(F, z, **pparams)
-diagnostic_solver = NonlinearVariationalSolver(diagnostic_problem, **sparams)
+# TODO: possibly use a regularized Jacobian
+diagnostic_problem = NonlinearVariationalProblem(F, z, J=J_r, **problem_params)
+diagnostic_solver = NonlinearVariationalSolver(diagnostic_problem, **solver_params)
 diagnostic_solver.solve()
 
 # Set up the prognostic problem and solver
@@ -181,6 +199,13 @@ G = flux_cells + flux_in + flux_out
 prognostic_problem = NonlinearVariationalProblem(G, h)
 prognostic_solver = NonlinearVariationalSolver(prognostic_problem)
 
+# Set up a calving mask
+R = firedrake.Constant(60e3)
+y = firedrake.Constant((0.0, R))
+mask = firedrake.conditional(inner(x - y, x - y) < R**2, 0.0, 1.0)
+
+time_since_calving = 0.0
+
 # Run the simulation and write the complete output to disk
 with firedrake.CheckpointFile(args.output, "w") as chk:
     u, M = z.subfunctions
@@ -190,7 +215,16 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
 
     for step in tqdm.trange(args.num_steps):
         prognostic_solver.solve()
+
+        if args.calving_freq != 0.0:
+            if time_since_calving > args.calving_freq:
+                time_since_calving = 0.0
+                h.interpolate(mask * h)
+            time_since_calving += float(dt)
+
+        h.interpolate(firedrake.max_value(0, h))
         h_n.assign(h)
+
         diagnostic_solver.solve()
 
         u, M = z.subfunctions

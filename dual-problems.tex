@@ -357,7 +357,7 @@ Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution
 
 \begin{figure}[t]
     \begin{center}
-        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/gibbous.png}
+        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/steady-state.pdf}
     \end{center}
     \caption{The thickness, velocity, and magnitude of the membrane stress tensor in steady state.}
     \label{fig:gibbous}
@@ -365,8 +365,48 @@ Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution
 
 As a second check that the dual form of the momentum balance equation produces the same answers as the primal form, we used the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}.
 The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
-We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years, at which point the system is close to steady state.
+We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
+We then project these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
 The results are shown in figure \ref{fig:gibbous} and are identical to those obtained from the primal form of the problem up to discretization error.
+
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/volumes.pdf}
+    \end{center}
+    \caption{Total volume of ice in the shelf over time.
+    The different spin-up and experimental phases are labelled.
+    Note how the finer spin-up equilibrates to a smaller ice volume than the coarser spin-up.}
+    \label{fig:gibbous-calving-volumes}
+\end{figure}
+
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/calved-thickness.pdf}
+    \end{center}
+    \caption{The thickness of the ice shelf immediately after the calving event.
+    We remove a semi-circular segment from the end of the shelf with a prescribed center and radius.
+    The nonlinear solver for the velocity and membrane stress still converges with this thickness input.}
+    \label{fig:gibbous-calving-thickness}
+\end{figure}
+
+As a third and final phase of this experiment, we run the same simulation, but every 24 years we set the ice thickness to 0 in a prescribed region near the terminus.
+This forcing mimics the effect of a large iceberg calving event.
+Our prescribed evolution of the terminus is not a realistic representation of how calving works.
+Instead, we aim only to stress test the solver in order to see if it can handle regions of zero thickness.
+We have never succeeded at implementing a solver for the primal form of the problem that works well when the ice thickness is zero.
+By contrast, our solver for the dual problem still performs gracefully in ice-free areas.
+This feature offers the possibility of implementing physically-based calving models in a simple way.
+
+Figure \ref{fig:gibbous-calving-volumes} shows the evolution of the volume of ice in the shelf over the two spin-up phases and the calving phase.
+The 24-year recurrence interval is not enough time for the ice to advance back to the original edge of the computational domain.
+Using a longer interval would allow the calving terminus to advance back to its original position.
+Figure \ref{fig:gibbous-calving-thickness} shows the thickness of the ice shelf immediately after the calving event.
+
+The number of nonlinear solver iterations to recompute the ice velocity after the calving event is much greater than after a normal timestep.
+This behavior is to be expected if we run the solver to convergence because it introduces a type of shock into the system.
+As the system relaxes back, the number of iterations decreases again.
+Moreover, we had to do some manual adjustment of the convergence tolerances.
+Several different strategies can alleviate the need for manual adjustment; see Appendix \ref{app:solution}.
 
 \subsection{MISMIP+} \label{sec:mismip}
 

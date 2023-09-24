@@ -46,6 +46,18 @@
 
 \maketitle
 
+\begin{abstract}
+    The momentum conservation equation for glacier flow can be described through minimization of an action functional \citep{bassis2010hamilton, dukowicz2010consistent}.
+    Several software packages for glacier flow modeling use this action principle in the design of numerical solution procedures.
+    We derive here an equivalent \emph{dual} action principle for the shallow stream approximation and implement this model using the finite element method.
+    The key feature of the dual action is that the flow law and friction law are both inverted, which changes the character of the nonlinearities.
+    This altered character makes it possible to implement numerical solvers for the dual form that work well with a much wider range of input data than solvers for the primal form can usually cope with.
+    In particular, the momentum balance equation remains solvable \emph{even when the ice thickness or strain rate are exactly equal to zero}.
+    This robustness makes it possible to implement iceberg calving in a strikingly simple way: the modeler sets the ice thickness to zero in the desired area.
+    We provide several demonstrations and a reference implementation.
+\end{abstract}
+
+
 % --------------------
 \section{Introduction}
 

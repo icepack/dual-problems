@@ -67,7 +67,7 @@ There are multiple equivalent ways of expressing the momentum balance equations:
 Each of these forms is best suited to a different type of numerical method.
 The momentum balance equation for low-Reynolds number viscous fluid flow can also be derived as the optimality conditions for the velocity to be the critical point of a certain \emph{action functional} \citep{dukowicz2010consistent}.
 The action functional has units of energy per unit time and can be interpreted as the rate of dissipation of thermodynamic free energy \citep{edelen1972nonlinear}.
-Moreover, for many problems, including low-Reynolds number flow and heat conduction, the action is a convex functional of the unknown field.
+For many problems -- low-Reynolds number flow, heat conduction, saturated groundwater flow, steady elasticity -- the action is a convex functional of the unknown field.
 
 The existence of an action principle is a special property of a very restricted class of differential equations.
 Action principles are not just of theoretical interest -- we can use them to design faster, more robust numerical solvers.
@@ -82,9 +82,11 @@ In \citet{shapero2021icepack}, we showed how to use this theory to design physic
 This work follows in the footsteps of \citet{dukowicz2010consistent} in studying action principles for glacier flow.
 Our main contribution is the derivation of an alternative \emph{dual} action principle, distinct from that presented in \citet{dukowicz2010consistent}, from which the momentum conservation equations can be derived.
 The most important feature is that \textbf{the dual action principle has favorable numerical properties for shear-thinning flows} such as glacier dynamics.
-Solving the primal form of the problem requires regularization around zero strain rate, velocity, and thickness in order to smoothe away infinite values.
+Solving the primal form of the problem requires regularization around zero strain rate, velocity, and thickness in order to smooth away infinite values.
 This regularization makes the momentum balance problem solvable, but it remains poorly conditioned and introduces other non-physical artifacts.
 \textbf{The dual problem requires no regularization.}
+We have implemented solvers for this dual form that still converge even when the thickness and strain rate are zero.
+As a consequence, \textbf{we were able to simulate iceberg calving by setting the ice thickness to zero} in part of the glacier.
 We illustrate these advantages in the final section with a numerical implementation and several demonstrations.
 
 In the following, we will assume familiarity with (1) the partial differential equations describing glacier flow, (2) variational calculus and the derivation of the Euler-Lagrange equations of a generic functional, and (3) convex analysis and convex duality theory.

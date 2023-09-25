@@ -2,7 +2,7 @@ import os
 import argparse
 import ast
 import numpy as np
-from figure_settings import pgf_with_latex
+#from figure_settings import pgf_with_latex
 from functions import path_name, get_default_parser, recover_coordinates_1D
 
 k = [1]
@@ -24,7 +24,7 @@ hxg = np.zeros([len(k), len(reg) + 1])
 # set plot for fnorm
 from matplotlib import pylab as plt
 import matplotlib
-matplotlib.rcParams.update(pgf_with_latex(1, hscale = 0.5))
+#matplotlib.rcParams.update(pgf_with_latex(1, hscale = 0.5))
 
 fig, ax = plt.subplots(1,len(k))
 cmap = matplotlib.cm.get_cmap('Reds')

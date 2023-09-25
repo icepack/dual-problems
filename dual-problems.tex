@@ -46,6 +46,7 @@
 
 \maketitle
 
+% --------------------
 \section{Introduction}
 
 On space and time scales greater than 100m and 1 day, glaciers flow like a viscous, incompressible fluid with a power-law rheology \citep{greve2009dynamics}.
@@ -68,21 +69,111 @@ In \citet{shapero2021icepack}, we showed how to use this theory to design physic
 
 This work follows in the footsteps of \citet{dukowicz2010consistent} in studying action principles for glacier flow.
 Our main contribution is the derivation of an alternative \emph{dual} action principle, distinct from that presented in \citet{dukowicz2010consistent}, from which the momentum conservation equations can be derived.
-This dual form explicitly includes the stress as an unknown.
-The most important feature, however, is that \textbf{the dual action principle has favorable numerical properties for shear-thinning flows} such as glacier dynamics.
-To motivate the derivation, we will first look at the primal and dual forms of a linear problem arising in groundwater flow.
-Then we will derive the dual form of the shallow stream equations of glacier dynamics.
-Finally, we will illustrate with a numerical implementation.
+The most important feature is that \textbf{the dual action principle has favorable numerical properties for shear-thinning flows} such as glacier dynamics.
+Solving the primal form of the problem requires regularization around zero strain rate, velocity, and thickness in order to smoothe away infinite values.
+This regularization makes the momentum balance problem solvable, but it remains poorly conditioned and introduces other non-physical artifacts.
+\textbf{The dual problem requires no regularization.}
+We illustrate these advantages in the final section with a numerical implementation and several demonstrations.
 
 In the following, we will assume familiarity with (1) the partial differential equations describing glacier flow, (2) variational calculus and the derivation of the Euler-Lagrange equations of a generic functional, and (3) convex analysis and convex duality theory.
 For background reading, we refer the reader to \citet{greve2009dynamics} for glacier dynamics, \citet{weinstock1974calculus} for variational calculus, and \citet{boyd2004convex} for convex optimization.
 
 
+
+% --------------------------------
+\section{Primal action principles}
+
+Many publications in the glacier flow modeling literature have explored the advantages of using action principles to describe the momentum balance \citep{bassis2010hamilton, dukowicz2010consistent, brinkerhoff2013data, shapero2021icepack}.
+Here we briefly review these concepts as they pertain to the momentum balance model we study here, the \emph{shallow stream approximation} (SSA).
+The SSA model assumes that (1) the glacier flow has a small ratio of thickness to horizontal length scale and (2) the $x-z$ components of the strain rate tensor are much smaller than the $x-x$, $x-y$, and $y-y$ components.
+The unknowns are the ice velocity $u$ and the \emph{membrane stress tensor} $M$, a rank-2 tensor with units of stress or energy density that results from applying the above approximations to the 3D deviatoric stress tensor.
+
+First, the conservation law for membrane stress is
+\begin{equation}
+    \nabla\cdot hM + \tau - \rho gh\nabla s = 0
+    \label{eq:membrane-stress-conservation}
+\end{equation}
+where $h$ and $s$ are the ice thickness and surface elevation and $\tau$ is the basal shear stress.
+
+To close the system of equations, we need to know a constitutive relation between the membrane stress tensor and the depth-averaged strain rate tensor
+\begin{equation}
+    \dot\varepsilon = \frac{1}{2}\left(\nabla u + \nabla u^\top\right).
+    \label{eq:strain-rate}
+\end{equation}
+In order to simplify the notation later, we introduce the dimensionless rank-4 tensor $\mathscr{C}$ defined by
+\begin{equation}
+    \mathscr{C}\dot\varepsilon = \frac{\dot\varepsilon + \text{tr}(\dot\varepsilon)I}{2}.
+    \label{eq:elasticity-tensor}
+\end{equation}
+The tensor $\mathscr{C}$ plays a similar role to the elasticity tensor in linear elasticity.
+Moreover, we define the norm of a rank-2 tensor with respect to $\mathscr{C}$ as
+\begin{equation}
+    |\dot\varepsilon|_{\mathscr{C}}^2 = \dot\varepsilon : \mathscr{C}\dot\varepsilon.
+\end{equation}
+With these notational conveniences in hand, the Glen flow law states that the membrane stress and strain rate are related by a power law:
+\begin{equation}
+    M = 2A^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr C}^{\frac{1}{n} - 1}\mathscr{C}\dot\varepsilon
+    \label{eq:constitutive-relation}
+\end{equation}
+where $A$ is the fluidity coefficient and $n \approx 3$ is the Glen flow law exponent.
+
+The constitutive relation for $M$ can also be expressed as the derivative of a certain scalar quantity:
+\begin{equation}
+    M = \frac{d}{d\dot\varepsilon}\left(\frac{2n}{n + 1}A^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr C}^{\frac{1}{n} + 1}\right)
+    \label{eq:M-anti-derivative}
+\end{equation}
+if we think of the strain rate tensor as an independent variable and briefly forget that it is the symmetrized velocity gradient.
+The chief difficulty in deriving what the action functional is for a particular problem usually boils down to computing anti-derivatives, which the previous equation furnishes for the viscous part.
+
+Next, we need to provide some kind of sliding relation.
+We will assume a generalized power law with some exponent $m$, i.e.
+\begin{equation}
+    \tau = -C|u|^{\frac{1}{m} - 1}u.
+    \label{eq:sliding-law}
+\end{equation}
+By analogy with equation \eqref{eq:M-anti-derivative}, we can observe that
+\begin{equation}
+    \tau = -\frac{d}{du}\left(\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\right)
+    \label{eq:tau-anti-derivative}
+\end{equation}
+Weertman sliding has $m = n$, while perfectly plasting sliding has $m = \infty$.
+Recent research suggests alternative forms that transition between Weertman-type sliding at low speeds and perfectly plasting sliding at higher speeds \citep{minchew2020toward}.
+For illustrative purposes equation \eqref{eq:sliding-law} is sufficient, and we will describe how to incorporate alternatives in the discussion.
+
+Finally, we need to supply a set of boundary conditions for the problem to be well-posed.
+At the inflow boundary of the domain, we assume that the velocity is known from observations.
+This is a Dirichlet boundary condition.
+At the glacier terminus, the membrane stresses at the cliff face are balanced by pressures from any proglacial water body:
+\begin{equation}
+    -hM\cdot\nu = \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu
+    \label{eq:terminus-bc}
+\end{equation}
+where $h_W$ is the water depth and $\nu$ is the unit outward-pointing normal vector to the terminus.
+This is a Neumann boundary condition.
+
+We can then combine equations \eqref{eq:membrane-stress-conservation}, \eqref{eq:strain-rate}, \eqref{eq:constitutive-relation}, and \eqref{eq:sliding-law} to arrive at a second-order, nonlinear system of partial differential equations for $u$.
+With the aid of equations \eqref{eq:M-anti-derivative}, \eqref{eq:tau-anti-derivative} for the anti-derivatives of the membrane and basal stresses, we can show that the shallow stream equations can be derived as the optimality conditions to find the minimum of the following action functional:
+\begin{align}
+    J(u) & = \int_\Omega\left(\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} + \rho gh\nabla s\cdot u\right)dx  \nonumber \\
+    & \qquad + \frac{1}{2}\int_\Gamma\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma
+    \label{eq:ssa-primal-action}
+\end{align}
+Note that the action has units of energy per unit time, or power.
+A mechanical computation of the second derivative of $J$ shows that this functional is convex.
+The theory of non-equilibrium thermodynamics tells us that $J$ represents the rate of dissipation of thermodynamic free energy \citep{edelen1972nonlinear}.
+
+
+
+% ------------------------------
 \section{Dual action principles}
+
+Action principles have appeared in the glaciology literature before but their dual forms have not.
+To introduce and motivate the idea behind dual forms, we will first focus on a simpler problem: groundwater flow in a confined aquifer.
+The primal form of groundwater flow is a linear differential equation for a scalar field, whereas the momentum balance equation for glacier flow is a nonlinear differential equation for a vector field.
+Nonetheless, deriving the dual form of the action functional follows the same essential process in both cases.
 
 \subsection{Groundwater flow}
 
-To illustrate our approach, we will begin by deriving a dual action principle for a simpler problem: groundwater flow in a confined aquifer.
 The unknowns in groundwater flow are the fluid velocity $u$ and the pressure head $\phi$.
 First, the total mass of water is conserved:
 \begin{equation}
@@ -99,99 +190,82 @@ In this case, the rule is Darcy's law
 where $k$ is the hydraulic conductivity.
 (Note that the conductivity could be a scalar or a rank-2 tensor.)
 Substituting Darcy's law into the conservation law eliminates $u$ from the problem, leaving us with a second-order PDE for the pressure head $\phi$.
-We must also add the essential Dirichlet boundary condition
+Finally, the boundary conditions for the problem consist of either a fixed hydraulic head $\phi$ or a fixed flux $u$.
+We can then show using the usual methods of variational calculus that this PDE is the optimality condition for minimizing the functional
 \begin{equation}
-    \phi|_{\partial\Omega} = g.
-    \label{eq:dirichlet-bc}
-\end{equation}
-We can then show after the fact that this PDE is the Euler-Lagrange equation to minimize the functional
-\begin{equation}
-    J(\phi) = \int_\Omega\left(\frac{1}{2}k\nabla\phi\cdot\nabla\phi - f\phi\right)\ud x.
+    J(\phi) = \int_\Omega\left(\frac{1}{2}k\nabla\phi\cdot\nabla\phi - f\phi\right)dx.
+    \label{eq:groundwater-primal-action}
 \end{equation}
 Minimizing $J$ is the \emph{primal} form of the problem.
 
-In the description above, we eliminated the velocity $u$, but we might need this quantity for other reasons, like simulating contaminant dispersal.
-We could always calculate the pressure head by solving the Poisson equation and then calculate the velocity afterwards.
-What if we instead wanted to solve simultaneously for both $u$ and $\phi$?
+In the description above, we eliminated the velocity $u$.
+For some problems, like simulating contaminant dispersal, the entire point of the exercise is to compute the velocity; the hydraulic head is only of secondary importance.
+We could always calculate the pressure head by finding a minimizer of the functional in equation \eqref{eq:groundwater-primal-action}, and then calculate the velocity afterwards using Darcy's law.
+What if we instead wanted to solve simultaneously for both the velocity and hydraulic head?
 Is there some functional $L$ of both fields such that setting the derivative of $L$ to zero yields the pair of equations \eqref{eq:groundwater-conservation-law} and \eqref{eq:darcy-law}?
+
 This idea forms the basis of \emph{dual} or \emph{mixed} formulations of the problem.
 The desired functional $L$ is
 \begin{equation}
-    L(u, \phi) = \int_\Omega\left(\frac{1}{2}k^{-1}u\cdot u - \phi\left(\nabla\cdot u - f\right)\right)\ud x - \int_{\partial\Omega}g\, u\cdot \nu\ud\gamma.
+    L(u, \phi) = \int_\Omega\left(\frac{1}{2}k^{-1}u\cdot u + u\cdot\nabla \phi + f\phi\right)dx.
 \end{equation}
-An elementary computation shows that the Euler-Lagrange equations for a critical point of $L$ are identical to the weak form of equations \eqref{eq:groundwater-conservation-law}, \eqref{eq:darcy-law}, and the boundary condition \eqref{eq:dirichlet-bc}.
+Again, a routine calculation shows that the optimality conditions for $u$, $\phi$ to be a critical point of $L$ are identical to the variational form of equations \eqref{eq:groundwater-conservation-law}, \eqref{eq:darcy-law}.
 In the dual problem, the hydraulic head $\phi$ plays the role of a Lagrange multiplier to enforce the conservation law $\nabla\cdot u = f$.
-Note how the essential boundary condition $\phi|_{\partial\Omega} = g$ in the primal problem became a natural boundary condition in the dual problem, i.e. we could include it directly in the Lagrangian.
-
-For our purposes, the most important thing to observe about the dual action is that \textbf{the constitutive relation is inverted}.
+The most important thing about the dual action for our purposes is that \textbf{the constitutive relation is inverted}.
 Where the form of the Darcy law that we started with was $u = -k\nabla\phi$, taking the derivative of $L$ with respect to $u$ and setting it equal to zero gives
 \begin{equation}
     \nabla\phi = -k^{-1}u.
 \end{equation}
-The two forms are mathematically equivalent, so at this juncture the distinction might not seem very significant.
+The two forms are mathematically equivalent, so at this juncture the distinction might not seem significant.
 Indeed, for linear problems one form is as good as the other.
 For nonlinear constitutive relations, however, the consequences are more drastic.
 
 \subsection{Shallow stream approximation}
-Now we turn to ice dynamics.
-In the following, we will consider the \emph{shallow stream approximation}, which assumes that (1) the glacier flow has a small ratio of thickness to horizontal length scale and (2) the flow is a plug flow, i.e. the horizontal velocity is roughly constant with depth.
-The key unknowns are the ice velocity $u$ and the \emph{membrane stress tensor} $M$, a rank-2 tensor with units of stress or energy density that results from applying the above approximations to the full deviatoric stress tensor.
-The conservation law for membrane stress is
-\begin{equation}
-    \nabla\cdot (hM) - \tau - \rho gh\nabla s = 0
-    \label{eq:membrane-stress-conservation}
-\end{equation}
-where $h$ and $s$ are the ice thickness and surface elevation and $\tau$ is the basal shear stress.
-To close the system of equations, we must provide a constitutive relation between the membrane stress tensor and the depth-averaged strain rate tensor
-\begin{equation}
-    \dot\varepsilon = \frac{1}{2}\left(\nabla u + \nabla u^\top\right).
-    \label{eq:strain-rate}
-\end{equation}
-The Glen flow law states that this is a power-law relationship, i.e.
-\begin{equation}
-    M = A^{-\frac{1}{n}}\sqrt{\frac{\dot\varepsilon\cdot\dot\varepsilon + \text{tr}(\dot\varepsilon)^2}{2}}^{\frac{1}{n} - 1}\left(\dot\varepsilon + \text{tr}(\dot\varepsilon)I\right)
-    \label{eq:constitutive-relation}
-\end{equation}
-where $A$ is the fluidity coefficient and $n \approx 3$ is the Glen flow law exponent.
-Finally, we need to provide some kind of sliding relation.
-We will assume a generalized power law with some exponent $m$, i.e.
-\begin{equation}
-    \tau = -C|u|^{\frac{1}{m} - 1}u.
-    \label{eq:sliding-law}
-\end{equation}
-Weertman sliding has $m = n$, while perfectly plasting sliding has $m = \infty$.
-Recent research suggests alternative forms that transition between Weertman-type sliding at low speeds and perfectly plasting sliding at higher speeds \citep{minchew2020toward}.
-For illustrative purposes equation \eqref{eq:sliding-law} is sufficient, and we will describe how to incorporate alternatives in the discussion.
-We can then combine equations \eqref{eq:membrane-stress-conservation}, \eqref{eq:strain-rate}, \eqref{eq:constitutive-relation}, and \eqref{eq:sliding-law} to arrive at a second-order, nonlinear system of partial differential equations for $u$.
 
-The shallow stream equations can be derived as the optimality conditions to find the minimum of the following action functional:
-\begin{align}
-    J(u) & = \int_\Omega\left(\frac{2n}{n + 1}hA^{-\frac{1}{n}}\sqrt{\frac{\dot\varepsilon\cdot\dot\varepsilon + \text{tr}(\dot\varepsilon)^2}{2}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} + \rho gh\nabla s\cdot u\right)\ud x  \nonumber \\
-    & \qquad + \frac{1}{2}\int_\Gamma\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\ud\gamma
-    \label{eq:ssa-primal-action}
-\end{align}
-The action has units of power and, while it is no longer quadratic like the groundwater flow problem, it is still convex.
-
-In the previous section, we derived a dual action principle for groundwater flow as follows:
+The procedure to derive the dual of the action functional for groundwater flow was:
 \begin{enumerate}
-    \item We started with a conservation law for fluid volume and a constitutive relation between fluid velocity and hydraulic head.
-    \item We derived a second-order differential equation for the hydraulic head alone.
-    \item We showed how this second-order equation has an action principle.
-    \item We showed how there is an equivalent, dual action principle for both the velocity and hydraulic head.
+    \item We started with a conservation law and a constitutive relation between the field to be solved for and a flux.
+    \item We eliminated the flux to arrive at a second-order differential equation for one field alone.
+    \item We showed that the solution of this differential equation is the minimizer of a certain action functional.
+    \item We showed that there is an equivalent, dual action functional for both the field and flux.
 \end{enumerate}
-Mathematically, the derivation of this dual action principle amounts to using the convex conjugate of the action.
-So far, we have a (primal) action principle for the ice velocity.
-The preceding section suggests that we can likewise derive a dual action principle for both the ice velocity and membrane stress.
+For the more complicated case of ice dynamics, we are already up to step 3 -- we have a primal action principle for the ice velocity.
+The preceding section suggests that we might be able to derive a dual action, and that this dual action could have different properties from the primal action.
 
-The dual form of the shallow stream equations adds the membrane stress tensor $M$ and the basal shear stress $\tau$ explicitly as unknowns in the problem:
+First, we expect by analogy with the groundwater problem that the constitutive relation will be inverted in the dual form.
+In other words, in the primal form, we defined the membrane stress tensor as a function of the strain rate tensor, but in the dual form we expect to instead determine the strain rate tensor as a function of the stress tensor.
+As a notational convenience, we will want an expression for the inverse of the tensor $\mathscr{C}$ defined in equation \eqref{eq:elasticity-tensor}.
+We can show explicitly that the rank-4 tensor $\mathscr{A}$ defined by
+\begin{equation}
+    \mathscr{A}M = \frac{M - \frac{1}{d + 1}\text{tr}(M)I}{2}
+\end{equation}
+where $d = 2$ is the space dimension is the inverse of $\mathscr{C}$.
+The tensor $\mathscr{A}$ plays an analogous role to the compliance tensor in the Hellinger-Reissner form of linear elasticity.
+With this definition in hand, we can invert equation \eqref{eq:constitutive-relation} to get
+\begin{equation}
+    \dot\varepsilon = 2A|M|_{\mathscr{A}}^{n - 1}\mathscr{A}M.
+\end{equation}
+We can once again compute explicitly the anti-derivative of this expression, just like equation \eqref{eq:M-anti-derivative}:
+\begin{equation}
+    \dot\varepsilon = \frac{d}{dM}\left(\frac{2}{n + 1}A|M|_{\mathscr A}^{n + 1}\right)
+\end{equation}
+Assuming power-law sliding, we can likewise invert the relations between the sliding velocity and the basal shear stress:
+\begin{equation}
+    u = -K|\tau|^{m - 1}\tau = -\frac{d}{d\tau}\left(\frac{1}{m + 1}K|\tau|^{m + 1}\right).
+\end{equation}
+
+We now have all the pieces in place to write down the dual form of the shallow stream equations.
+This reformulation adds the membrane stress tensor and basal shear stress as unknowns in the problem.
+The dual form is:
 \begin{align}
-    L(M, \tau, u) = & \int_\Omega\Bigg\{\frac{2}{n + 1}hA\sqrt{\frac{M\cdot M - \frac{1}{d + 1}\text{tr}(M)^2}{2}}^{n + 1} + \frac{1}{m + 1}K|\tau|^{m + 1} \nonumber\\
-    & \qquad\qquad + u\cdot\left(\nabla\cdot hM - \tau - \rho_Igh\nabla s\right)\Bigg\}\ud x
+    L(u, M, \tau) = & \int_\Omega\Bigg\{\frac{2}{n + 1}hA|M|_{\mathscr A}^{n + 1} + \frac{1}{m + 1}K|\tau|^{m + 1} \nonumber\\
+    & \qquad\qquad - hM:\dot\varepsilon(u) + \tau\cdot u - \rho_Igh\nabla s\cdot u\Bigg\}dx \nonumber \\
+    & \qquad - \frac{1}{2}\int_\Gamma\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\;d\gamma
+    \label{eq:ssa-dual-form}
 \end{align}
-The basal shear stress is part of the PDE itself for the shallow stream equations instead of a boundary condition, as they are for the full Stokes equations.
-To invert or ``dualize'' this term in the shallow stream approximation, we needed to introduce the basal shear stress explicitly as a distinct variable from the membrane stress.
+Again, it is a routine application of variational calculus techniques to show that the optimality conditions for $u$, $M$, $\tau$ to be a critical point of $L$ are identical to equations \eqref{eq:membrane-stress-conservation}, \eqref{eq:constitutive-relation}, \eqref{eq:sliding-law}, \eqref{eq:terminus-bc}.
 
-The key feature of this dual formulation is that \textbf{the nature of the nonlinearity has changed}.
+The important feature of the dual formulation is that \textbf{the nature of the nonlinearity has changed}.
 In the primal action shown in equation \eqref{eq:ssa-primal-action}, the nonlinearity consists of the strain rate raised to the power $\frac{1}{n} + 1$.
 Since $n > 1$, the nonlinearity in the primal form has an infinite singularity in its second derivative around any velocity field with zero strain rate.
 In the dual form, however, the nonlinearity consists of the stress tensor raised to the power $n + 1$.
@@ -204,72 +278,82 @@ Around zero stress, the second derivative of the action with respect to the stre
     \label{fig:primal-vs-dual}
 \end{figure}
 
-
-\section{Discretization}
-
-Roughly any conforming finite element basis is stable for the primal form of the Poisson equation.
-The most common choice is to use piecewise-continuous polynomials of a given degree $k$ on triangles, or the tensor product of polynomials on quads.
-We will refer to this basis as $CG(k)$.
-While mixed formulations have many advantages, the key challenge to overcome is that most choices of basis are unstable -- the resulting linear systems are either singular or their inverses have unbounded norm in the limit as the mesh is refined.
-For example, using $CG(k)$ elements for the pressure and the product $CG(k)^2$ for the velocity is an unstable discretization of the dual form of the groundwater problem.
-For a degree-1 basis, we can remedy this situation by enriching the velocity space with cubic \emph{bubble} functions $B(3)$.
-Using the space $(CG(1) \oplus B(3))^2$ for the velocities and $CG(1)$ for the hydraulic head is stable for mixed Poisson \citep{boffi2013mixed}.
-We could also have used the \emph{discontinuous} space $DG(k)$ for the pressures and Raviart-Thomas elements $RT(k)$ for the velocity.
-The Raviart-Thomas basis functions have continuous normal components across element boundaries, and are thus a conforming discretization of the Sobolev space $H^{\text{div}}(\Omega)$.
-
-The shallow stream equations are formally similar to the 2D elasticity equations and thus much of the theory for discretizing the mixed elasticity system applies here.
-Stable discretization of the mixed elasticity problem is much more complicated than the mixed form of the Poisson equation because we have an additional invariant to enforce: the symmetry of the stress tensor.
-There are three viable approaches:
-\begin{enumerate}
-    \item Use continuous basis functions for both the velocity and the stress tensor and enrich the stress space with bubble functions \citep{brezzi1993mixed}.
-        The basis functions for the stress tensor are taken to be symmetric.
-    \item Use discontinuous basis functions for velocity and the Raviart-Thomas or similar basis for the rows of the stress tensor.
-        Enforce the symmetry of the stress tensor weakly by addition of another Lagrange multiplier; the stress basis is not symmetric a priori \citep{arnold1984peers}.
-    \item Use the Arnold-Winther element, which is conforming for mixed elasticity but which requires many degrees of freedom \citep{arnold2002mixed}.
-\end{enumerate}
-In the demonstrations that follow, we used both bubble functions and the AW element.
-Firedrake includes an implementation of the AW element, which is relatively uncommon among software packages for finite element analysis \citep{aznaran2021transformations}.
-\textcolor{red}{Actually test it with AW...}
+The dual form does come with some costs compared to the primal form.
+The primal form is an unconstrained convex problem for the velocity $u$.
+We have already mentioned that the dual form has more unknowns, including both the membrane stress tensor and the basal shear stress vector.
+The dual form now has the stress divergence condition (equation \eqref{eq:membrane-stress-conservation}) as a linear constraint.
+The velocity acts like a Lagrange multiplier to enforce this constraint.
+Optimization with constraints is substantially more challenging than without.
+We argue in the following that these costs are worth paying.
 
 
+
+% ----------------------
 \section{Demonstrations}
 
-We implemented a solver for the dual form of the SSA using the Firedrake package.
-To solve for the velocity and membrane stress tensor, we proceed in two steps.
-We start with a continuation-type approach -- make the problem linear by setting $n = 1$ to get a starting guess at the velocity and membrane stress.
-Next, we use this guess to solve the full nonlinear problem using a Newton trust region method.
+We implemented a solver for the dual form of the SSA using the Firedrake package \citep{FiredrakeUserManual}.
+For more information on discretizing the dual form using finite elements, see Appendix \ref{app:discretization}, and for strategies to solve the resulting finite-dimensional optimization problem, see Appendix \ref{app:solution}.
+Here we will present the verification exercises that we used to evaluate the correctness of our implementation, as well as demonstrations of the new capabilities of the dual form compared to the primal form.
 
-The trust region method has distinct advantages over the more commonly applied line search methods for problems where the second derivative can have zero degeneracies.
-The trust region method regularizes over the zero degeneracy by adding a small multiple of some positive-definite matrix \citep{conn2000trust}.
-The key point here is that the inverse of this matrix multiplies the true derivative of the Lagrangian, so despite this regularization, the approximate solutions converge to the critical point of the true, unmodified Lagrangian.
-By contrast, the conventional methods for the primal problem modify the action functional in order to eliminate the infinite singularity.
-The primal problem grows more ill-conditioned in the limit as this regularization is shrunk to zero.
+Verification is the process of demonstrating that we have correctly specified the dual form of the shallow stream equations and that we can solve them accurately.
+A typical verification experiment would be to first find an analytical solution of the physics problem of interest and then calculate the misfit between the exact and numerical solutions as the mesh is refined.
+Finite element theory predicts that, as the mesh spacing $\delta x$ is decreased, the misfits decrease asymptotically as $\delta x^p$ for some exponent $p$ depending on the norm, the polynomial order of the basis, and the problem.
+We cannot actually evaluate the limit as $\delta x \to 0$.
+The best we can do is use a sequence of refined meshes and compute a log-log fit of the errors against the mesh spacing.
+If the slope in log-log space of the misfit-mesh spacing curve is close to the expected power $p$, then we have gained some confidence that we have implemented the physics model correctly.
+Note that we cannot prove definitively that the implementation is correct; we can only try to find the most rigorous tests we can that might reveal the presence of an error.
+% Except for that student of Andrew Appell who did exactly that...
 
-\subsection{Linear ice shelf}
+Comparing numerical results against analytically solvable test cases is vital for catching bugs in the code.
+Numerical methods do not always fail discretely, so these bugs can be more subtle than, say, the solver crashing.
+For example, a common mistake might be to evaluate the viscosity of ice as some constant times \texttt{epsilon ** (-2 / 3)} where \texttt{epsilon} is the absolute value of the strain rate.
+In Fortran and C, integer division gives integer results, so this expression would evaluate to \texttt{epsilon ** 0} which is equal to 1.
+(By contrast, in Python, integer division can give a floating point result.)
+The simulation would describe a linear viscous fluid flow, whereas glacier flow is a nonlinear shear-thinning fluid flow.
+The results would still look like a viscous fluid flow and thus might seem fine in the eyeball norm.
+Comparing them to an analytical solution, however, would at least reveal the presence of a problem.
 
-%\begin{figure}[h]
-%    \begin{center}
-%        \includegraphics[width=0.75\linewidth]{demos/linear-ice-shelf/results.pdf}
-%    \end{center}
-%    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf test case.
-%    Convergence rate obtained through a log-log fit of errors against mesh size.}
-%    \label{fig:linear-ice-shelf-convergence-rate}
-%\end{figure}
+The verification experiments that we present below are all taken from those used to test the implementation of the primal form of the SSA in the icepack package \citep{shapero2021icepack}.
+The linear ice shelf and ice stream experiments are analytically solvable.
+The gibbous ice shelf and MISMIP+ test cases are not analytically solvable.
+Instead, we take it on faith that the solvers in icepack are implemented correctly, and check that the dual form solver we present here reproduces the same results as icepack to within discretization error.
+
+
+\subsection{Linear ice shelf and ice stream} \label{sec:linear-ice-shelf}
+
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/convergence-tests/results.pdf}
+    \end{center}
+    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf (left) and ice stream (right) test cases.
+    Convergence rate obtained through a log-log fit of errors against mesh size.}
+    \label{fig:linear-glacier-convergence-rate}
+\end{figure}
 
 As a first check that we implemented the dual form of the SSA correctly, we used the exact solution for a floating ice shelf with thickness
 \begin{equation}
     h = h_0 - \delta h \cdot x / L_x
 \end{equation}
-in a domain of length $L_x$.
+in a domain of length $L_x = 20$km.
 With a constant value of the fluidity coefficient, the velocity in the $x$ direction is
 \begin{equation}
     u_x = u_0 + L_x A \left(\frac{\rho g h_0}{4}\right)^n\left(1 - \left(1 - \frac{\delta h \cdot x}{h_0\cdot L_x}\right)^{n + 1}\right).
 \end{equation}
-We used a 2D domain in order to make sure that the numerical solution has no variation in the $y$ direction.
-The relative error in the $L^2$ norm of the numerical solutions has the expected asymptotic convergence rate of $\mathscr{O}(\delta x^2)$ for continuous piecewise linear velocity elements; see figure \ref{fig:linear-ice-shelf-convergence-rate}.
+We used a 2D domain in order to make sure that the numerical solution, like the exact solution, has no variation in the $y$ direction.
+We tested meshes with between 16 and 256 cells to a side and we used both degree-1 and degree-2 finite elements for the velocity.
+The relative errors in the $L^2$ norm have the expected asymptotic convergence rates of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic; see figure \ref{fig:linear-glacier-convergence-rate}.
 
-The inflow boundary conditions are natural in the dual form.
-We used a nonlinear Nitsche's method to impose the essential boundary conditions at the calving terminus; see appendix \ref{sec:boundary-conditions} for more details.
+Next, we performed an experiment on the same geometry and meshes but with basal friction and the ice thickness above flotation.
+Solving the resulting boundary value problem analytically in the presence of friction is now much more difficult.
+Instead, we used the method of manufactured solutions -- we picked the ice velocity, thickness, and surface elevation, and generated a friction coefficient that would make this velocity an exact solution.
+To generate this friction coefficient we used the computer algebra system sympy \citep{sympy}.
+The numerical solutions again converge with the expected accuracy of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic elements.
+See figure \ref{fig:linear-glacier-convergence-rate}.
+
+While finite element theory can predict the asymptotic convergence rates, it does not immediately give estimates of what the constant prefactor should be except in the most trivial of linear problems.
+The constants can only be evaluated empirically.
+In particular, the theory predicts that quadratic elements converge faster asymptotically than linear elements, but it cannot tell us how many cells per side are necessary for each to achieve the same accuracy.
+Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution obtained with only 16 cells per side and quadratic elements is roughly as accurate as a solution with 256 cells per side and linear elements.
 
 \subsection{Slab of ice flowing into the ocean}
 
@@ -319,18 +403,82 @@ dual & - & 215.20 & 412.22 & 7 \\
 	\label{fig:newton-its}
 \end{figure}
 
+\subsection{Gibbous ice shelf} \label{sec:gibbous-ice-shelf}
 
-\subsection{Bodvarsson solution}
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/steady-state.pdf}
+    \end{center}
+    \caption{The thickness, velocity, and magnitude of the membrane stress tensor in steady state.}
+    \label{fig:gibbous}
+\end{figure}
 
-We tested our implementation using the exact solution for a marine ice sheet described in \citet{bueler2014exact}.
-The geometry in \citet{bueler2014exact} extends from $x = 0$ to $x = L$ with the understanding that the solution is symmetric.
-We instead used a domain extending from $x = -L$ to $x = +L$ to include the dangerous point at $x = 0$ in the interior.
+As a second check that the dual form of the momentum balance equation produces the same answers as the primal form, we used the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}.
+The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
+We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
+We then project these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
+The results are shown in figure \ref{fig:gibbous} and are identical to those obtained from the primal form of the problem up to discretization error.
 
-\subsection{Synthetic ice shelf}
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/volumes.pdf}
+    \end{center}
+    \caption{Total volume of ice in the shelf over time.
+    The different spin-up and experimental phases are labelled.
+    Note how the finer spin-up equilibrates to a smaller ice volume than the coarser spin-up.}
+    \label{fig:gibbous-calving-volumes}
+\end{figure}
 
-As a more realistic test case, we used a synthetic ice shelf flowing over an ice rise.
-We made the elevation of the ice rise above sea level and its basal friction high enough to cause the ice to stagnate on top of the rise.
-Near the ice rise, both the basal sliding velocity and the strain rate approach zero, so the solver must be able to cope with the resulting degeneracy.
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/calved-thickness.pdf}
+    \end{center}
+    \caption{The thickness of the ice shelf immediately after the calving event.
+    We remove a semi-circular segment from the end of the shelf with a prescribed center and radius.
+    The nonlinear solver for the velocity and membrane stress still converges with this thickness input.}
+    \label{fig:gibbous-calving-thickness}
+\end{figure}
+
+As a third and final phase of this experiment, we run the same simulation, but every 24 years we set the ice thickness to 0 in a prescribed region near the terminus.
+This forcing mimics the effect of a large iceberg calving event.
+Our prescribed evolution of the terminus is not a realistic representation of how calving works.
+Instead, we aim only to stress test the solver in order to see if it can handle regions of zero thickness.
+We have never succeeded at implementing a solver for the primal form of the problem that works well when the ice thickness is zero.
+By contrast, our solver for the dual problem still performs gracefully in ice-free areas.
+This feature offers the possibility of implementing physically-based calving models in a simple way.
+
+Figure \ref{fig:gibbous-calving-volumes} shows the evolution of the volume of ice in the shelf over the two spin-up phases and the calving phase.
+The 24-year recurrence interval is not enough time for the ice to advance back to the original edge of the computational domain.
+Using a longer interval would allow the calving terminus to advance back to its original position.
+Figure \ref{fig:gibbous-calving-thickness} shows the thickness of the ice shelf immediately after the calving event.
+
+The number of nonlinear solver iterations to recompute the ice velocity after the calving event is much greater than after a normal timestep.
+This behavior is to be expected if we run the solver to convergence because it introduces a type of shock into the system.
+As the system relaxes back, the number of iterations decreases again.
+Moreover, we had to do some manual adjustment of the convergence tolerances.
+Several different strategies can alleviate the need for manual adjustment; see Appendix \ref{app:solution}.
+
+\subsection{MISMIP+} \label{sec:mismip}
+
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/mismip/mismip.pdf}
+    \end{center}
+    \caption{The thickness, velocity, membrane stress magnitude, and basal stress for the steady state of the MISMIP+ test case.}
+    \label{fig:mismip}
+\end{figure}
+
+Here we perform a spin-up to steady state of the MISMIP+ test case \citep{asay2016experimental}.
+We used the Weertman sliding law, i.e. $m = 3$, instead of the modifications that assume a plastic rheology at higher sliding speeds.
+With the primal solver in icepack, we were unable to use the Weertman sliding law for the entire duration of the simulation because the ice thicknesses were so small as to crash the momentum balance solver.
+The dual form does have its own drawbacks.
+For example, in the early rapid adjustment stages, we were limited to taking timesteps on the order of 2.5 years.
+Longer timesteps, which are desirable for computational efficiency, could then make the momentum balance solver crash with the options we used.
+We could in principle remedy this issue with different solver options or more continuation steps.
+
+In summary, it appears as if solvers for the dual form can still converge even when given values of the input data that would make solvers for the primal form crash.
+Achieving this convergence may require more coaxing in the form of shorter timesteps, more regularized Jacobians, or more numerical continuation steps.
+We regard this tradeoff as a net positive if primal solvers cannot be made to converge even with substantial encouragement.
 
 
 \section{Discussion}
@@ -356,46 +504,151 @@ The dual formulation offers alternative possibilities for incorporating plastic 
 \textcolor{red}{Elaborate...}
 
 
+
+% -------
 \appendix
 
-\section{Boundary conditions} \label{sec:boundary-conditions}
+% -----------------------------------------
+\section{Discretization by finite elements}
+\label{app:discretization}
 
-The boundary condition at the terminus of a glacier is a Neumann-type condition on the membrane stress.
-Physically, an ice cliff experiences a pressure that pushes the terminus out, while any ocean water or ice melange imposes a back-pressure.
-The boundary condition is
+Roughly any conforming finite element basis is stable for the primal form of the groundwater flow equation as long as the mesh is regular.
+The most common choice is to use piecewise-continuous polynomials of a given degree $k$ on triangles, or the tensor product of polynomials on quads.
+We will refer to this basis as $CG(k)$.
+While dual formulations have many advantages, the main challenge to overcome is that most choices of basis are unstable -- the resulting linear systems are either singular or their inverses have unbounded norm in the limit as the mesh is refined.
+For example, using $CG(k)$ elements for the pressure and the product $CG(k)^2$ for the velocity is an unstable discretization of the dual form of the groundwater problem.
+Making matters even harder, the SSA and other problems for a pair of vector and tensor fields have an additional invariant to enforce -- the symmetry of the stress tensor -- which can be difficult to achieve in practice.
+
+The question of how to choose basis functions that give a stable discretization of dual problems is the subject of \emph{mixed} finite element methods.
+This subject is covered in great detail in \citet{boffi2013mixed}.
+There is, however, a wide chasm between the motivation for using dual formulations in most of the finite element literature and our reasons for applying them to glacier momentum balance.
+The big motivating problem for dual formulations in the finite element literature is linear elasticity.
+In that setting, the goal is to compute the stress tensor with high accuracy in order to make sure that it does not exceed some failure threshold for the material.
+Using the dual form of the elasticity equations offers the promise of approximating the stress tensor with a higher order of accuracy than the primal form.
+Finding stable finite element bases for the dual form of the elasticity equations is a holy grail problem because of its potential impact on engineering practice.
+
+It might seem at first blush as if the heavy focus on finding stable discretizations of the dual form of the elasticity equations is beneficial to us because the SSA is formally similar to 2D elasticity, even though these equations have different provenance.
+Our purpose for using the dual form, however, is not to obtain a more accurate resolution of the membrane stress tensor -- we are only interested in the dual form because of how it changes the character of the nonlinearities in the SSA.
+With this goal in mind, there are several choices that we make differently from how they are done in the finite element literature.
+These are of a technical nature and not of special interest to most glaciologists, but we include them here for the sake of completeness.
+A typical dual formulation of elasticity would assume that:
+\begin{enumerate}
+    \item the displacements live in the function space $L^2(\Omega, \mathbb{R}^d)$, i.e. the space of square-integrable vector fields, and
+    \item the stresses live in the space $H^{\text{div}}(\Omega, \mathbb{R}_{\text{sym}}^{d \times d})$ of square-integrable symmetric tensor fields whose divergences are also square-integrable.
+\end{enumerate}
+This $L^2 \times H^{\text{div}}$ formulation offers the best possible asymptotic accuracy for the stress tensor.
+The dual form of the problem with these assumptions is different from what we wrote down in equation \eqref{eq:ssa-dual-form} -- the gradient of $u$ is instead pushed over as a stress divergence.
+Moreover, with the $L^2 \times H^{\text{div}}$ form, Dirichlet boundary conditions become natural and Neumann conditions become essential.
+Finding stable bases for the $L^2\times H^{\text{div}}$ form requires very sophisticated finite element bases.
+At the simplest end of the spectrum, one can enrich the stress space by cubic bubbles \citep{brezzi1993mixed}.
+A host of more complex approaches are possible \citep{arnold1984peers, arnold2002mixed}.
+
+Although it is almost completely unheard of in the literature on mixed finite elements, we make a different but equally valid set of assumptions.
+We instead assume that
+\begin{enumerate}
+    \item the velocities live in the function space $H^1(\Omega, \mathbb{R}^d)$ of vector fields that are square-integrable and have square-integrable derivatives, and
+    \item the membrane stress tensor lives in the space $L^2(\Omega, \mathbb{R}^{d \times d}_{\text{sym}})$ of square-integrable symmetric tensor fields.
+\end{enumerate}
+With this $H^1 \times L^2$ dual form, Dirichlet conditions remain essential and Neumann conditions natural.
+Finding a stable finite element basis is much more straightforward for the $H^1\times L^2$ form of the problem.
+We use the space $CG(k)^d$ of continuous piecewise-polynomial vector fields for the velocities, and $DG(k)^{d\times d}_{\text{sym}}$ of discontinuous piecewise-polynomial symmetric tensor fields for the membrane stress.
+
+
+
+% ---------------------------------------
+\section{Solution by Newton-type methods}
+\label{app:solution}
+
+The finite element method reduces the infinite-dimensional optimization problems that we have described into finite-dimensional ones.
+All that remains is to decide how to solve the resulting finite-dimensional optimization problems.
+
+We can approximate a minimizer for the primal form of the action functional using standard Newton line search algorithms \citep{shapero2021icepack}.
+But the primal form of the momentum balance equation has singularities in the limit as the strain rate tensor approaches 0.
+When we calculate the derivative of the action, these singularities are multiplied by 0 in such a way that they become removable, i.e. they have a finite limit.
+In floating-point arithmetic, however, evaluating an expression with a removable singularity does not always produce the right limit.
+Moreover, the second derivative of the action does have genuine infinite singularities, and we need to be able to calculate the second derivative or some approximation to it in order to use Newton-type methods.
+The usual remedy is to introduce a smoothing factor $\delta$ into the action that rounds off the behavior around $\dot\varepsilon = 0$.
+Regularizing the action functional makes the minimization problem solvable but very ill-conditioned.
+Additionally, for some simulations the ice thickness can go to zero, which makes the minimization problem difficult or impossible to solve numerically.
+The usual remedy for this is to clamp the thickness from below at some fixed value, say 1m or 10m.
+Where the ice thickness approaches zero, usually the strain rate does as well.
+In these scenarios, we are certain to encounter the worst behavior possible associated with the singularity at zero strain rate.
+
+The dual form, on the other hand, does not have infinite singularities around zero strain rate.
+Instead, the action functional has \emph{degeneracies} -- terms that go to zero where, in a nicer problem, they would stay strictly positive.
+(See again figure \ref{fig:primal-vs-dual}.)
+Degeneracies are not good news either.
+In order to use a Newton-type algorithm to find a critical point of the dual action $L$, we compute a search direction by solving the linear system
 \begin{equation}
-    M\cdot\nu = p_t\nu
+    d^2L\cdot\left(\begin{matrix} v \\ N \\ \sigma\end{matrix}\right) = -dL.
 \end{equation}
-where $p_t$ is the terminal pressure.
-For a glacier calving into a body of water that rises up to a relative height $f$ through the ice column,
+We know that the second derivative of $L$ has the structure of a saddle-point matrix.
+Usually one assumes that certain blocks of this matrix are symmetric and strictly positive-definite in order to guarantee the existence of a solution \citep{boffi2013mixed}.
+When the problem is degenerate, we no longer have these guarantees.
+We still know that $L$ has a unique saddle point because it is \emph{strictly} convex with respect to $M$ and $\tau$, the problem is that it fails to be \emph{strongly} or \emph{uniformly} convex.
+There are workable remedies for this issue that do not degrade the conditioning of the problem to the same extent as regularization does for the primal problem.
+
+\subsection{Perturbed Hessian}
+
+Newton's method with line search guarantees second-order convergence for nice problems.
+In the event that the second derivative has degeneracies, we can instead try to compute a search direction b solving the perturbed system
 \begin{equation}
-    p_t = \frac{1}{2}\left(\rho_I - \rho_Wf^2\right)gh.
+    \left(d^2L + \lambda\cdot d^2G\right)\left(\begin{matrix} v \\ N \\ \sigma\end{matrix}\right) = -dL
+    \label{eq:regularized-newton-step}
 \end{equation}
-A land-terminating glacier has $f = 0$, while for a floating ice shelf, $f = \rho_I / \rho_W$.
+where $G$ is some strongly convex function of $M$ and $\tau$ and $\lambda$ is a small parameter.
+For example, one reasonable choice is to take
+\begin{equation}
+    G = \frac{1}{2}\int_\Omega\left(\max\{h, h_{\text{min}}\}A'|M|_{\mathscr{A}}^2 + K'|\tau|^2\right)dx
+\end{equation}
+for some constants $A'$, $K'$ having the right units and for some minimum thickness $h_{\text{min}}$ on the order of 1-10m.
+The addition of $d^2G$ regularizes the search directions.
+It does \emph{not} regularize or perturb what solution we are looking for, only how we look for it.
 
-The dual formulation not only changes the constitutive relations but also changes which boundary conditions are natural or essential.
-For the primal problem, boundary conditions on the normal stress at the calving terminus or along the side walls are natural, while the inflow boundary conditions are essential.
-These are reversed in the dual problem, but enforcing the essential boundary condition only on the normal component of the stress at the terminus by fixing the values of some element degrees of freedom is much more difficult than setting all components of the inflow ice velocity.
-Treating this boundary condition as a constraint, we could enforce it through a pure penalty method, which would destroy the condition number of the system, or we could try a Lagrange multiplier, but choosing finite element spaces for the multiplier is infeasible.
-Finally, we could try an augmented Lagrangian-type approach which combines the penalty and Lagrange multiplier methods.
-We could then note that the Lagrange multiplier is, in this case, exactly equal to the ice velocity.
-This final step is the idea behind \emph{Nitsche's method}.
+Regularizing the search directions likely sacrifices the second-order convergence rate of Newton's method.
+It does, however, achieve faster convergence than typical first-order quasi-Newton methods like BFGS \citep{nocedal2006numerical}.
 
-Let $\Gamma_t$ denote the calving terminus part of the domain boundary.
-For the experiments in this paper, we used the following modified action functional to enforce the boundary condition on the membrane stress at the ice terminus:
+\subsection{Trust region methods}
+
+We can also abandon the line search idea entirely and use trust region methods.
+For a detailed discussion of trust region methods, see \citet{nocedal2006numerical} or \citet{conn2000trust}.
+Trust region methods instead adaptively select $\lambda$ in equation \eqref{eq:regularized-newton-step} to be as small as possible while approaching the critical point of the dual action as rapdily as possible.
+One of the key advantages of trust region methods is that they can cope well with functional that have degenerated second derivatives while still achieving superlinear or even quadratic convergence rates.
+
+\subsection{Linearly implicit schemes}
+
+Finally, we might recognize that the momentum balance equation is only one part of the overall dynamics.
+For a time-dependent simulation these are certain to include the mass balance equation, and they may include heat flow or other effects as well.
+The overall structure including mass balance is a differential-algebraic equation:
 \begin{align}
-    L_\alpha(M, \tau, u) & = L(M, \tau, u) - \int_{\Gamma_t}u\cdot h\left(M\cdot\nu - p_t\nu\right)\ud\gamma \nonumber\\
-    & \qquad + \int_{\Gamma_t}\frac{2\alpha\ell}{n + 1}hA\left|M\cdot\nu - p_t\nu\right|^{n + 1}\ud\gamma
-    \label{eq:nitsche-functional}
+    \partial_th & = F(h; u, \ldots) \\
+    0 & = dL(u, M, \tau; h, \ldots)
 \end{align}
-where $\alpha$ is a penalty parameter that we need to pick and $\ell$ is the local cell size.
+A typical timestepping scheme to solve these equations proceeds by (1) updating the thickness using the mass balance equation, and then (2) solving the momentum balance equation with the new value of the thickness:
+\begin{align}
+    \frac{h_{k + 1} - h_k}{\delta t} & = F(h_{k + 1}; u_k, \ldots) \\
+    0 & = dL(u_{k + 1}, M_{k + 1}, \tau_{k + 1}; h_{k + 1}, \ldots)
+\end{align}
+Although it requires more work, we could solve the mass and momentum balance equations simultaneously:
+\begin{align}
+    \frac{h_{k + 1} - h_k}{\delta t} & = F(h_{k + 1}; u_{k + 1}, \ldots) \\
+    0 & = dL(u_{k + 1}, M_{k + 1}, \tau_{k + 1}; h_{k + 1}, \ldots)
+\end{align}
+The time discretization here is the simplest first-order backward differencing scheme.
+This scheme is L-stable, which is desirable for problems like glacier flow that are predominantly dissipative \citep{wanner1996solving}.
+One could also use more sophisticated implicit Runge-Kutta methods.
 
-For linear problems, the right value of $\alpha$ can be calculated ahead of time using sharp estimates for the constant in finite element inverse inequalities \citep{warburton2003constants}.
-The situation is less clear for problems with power-law nonlinearities such as the Glen flow law.
-To our knowledge, there is no published convexity proof for a Nitsche-type method applied to problems with general power-law nonlinearities.
-We \emph{conjecture} that equation \eqref{eq:nitsche-functional} is the correct form of the action functional and that $\alpha$ can be calculated by using the Riesz-Thorin theorem applied to the original $L^2$-inverse inequalities.
-We found experimentally that all problems using the modified functional in equation \eqref{eq:nitsche-functional} were solvable.
-Nonetheless, we do not have a formal proof and this will be the subject of future work.
+The idea of \emph{linearly implicit} or \emph{Rosenbrock} schemes is that, rather than solve a nonlinear equation to convergence in every timestep, we can instead do a single iteration of Newton's method \citep{wanner1996solving}.
+The thinking behind this approach is that, if the timestep is not too large, the first Newton iteration usually does the bulk of the error reduction.
+This is not as accurate as solving the nonlinear system as precisely as possible.
+But if the original nonlinear scheme converges asymptotically as $\delta t^p$ then the linearly implicit scheme does too.
+In other words, the ``lazy'' approach may do worse, but only by a constant factor -- the convergence rate is the same.
+Equally as important, linearly implicit schemes retain all of the favorable stability properties of fully implicit methods.
+
+We still have not answered how linearly implicit schemes are a solution to the degeneracy issue.
+The key trick is that \textbf{one does not need to use the exact linearization in a linearly implicit scheme} in order to achieve the same convergence rate.
+For example, we can use the perturbation from equation \eqref{eq:regularized-newton-step}.
+
 
 
 \pagebreak

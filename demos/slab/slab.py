@@ -1,3 +1,4 @@
+import numpy as np
 from firedrake import *
 from functions import get_default_parser, recover_coordinates_1D
 

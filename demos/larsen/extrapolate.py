@@ -66,3 +66,4 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
     chk.save_mesh(mesh)
     chk.save_function(u, name="velocity")
     chk.save_function(θ, name="log_fluidity")
+    chk.save_function(μ, name="mask")

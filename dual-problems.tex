@@ -50,7 +50,7 @@
 \section{Introduction}
 
 On space and time scales greater than 100m and 1 day, glaciers flow like a viscous, incompressible fluid with a power-law rheology \citep{greve2009dynamics}.
-Ice flow is slow enough that the inertial terms in the Navier-Stokes equations can be neglected, i.e. the flow occurs at very low Reynolds number.
+Ice flow is slow enough that the inertial terms in the Navier-Stokes equations can be neglected, i.e.~the flow occurs at very low Reynolds number.
 There are multiple equivalent ways of expressing the momentum balance equations: a conservation law, a variational form, a partial differential equation.
 Each of these forms is best suited to a different type of numerical method.
 The momentum balance equation for low-Reynolds number viscous fluid flow can also be derived as the optimality conditions for the velocity to be the critical point of a certain \emph{action functional} \citep{dukowicz2010consistent}.
@@ -78,24 +78,16 @@ We illustrate these advantages in the final section with a numerical implementat
 In the following, we will assume familiarity with (1) the partial differential equations describing glacier flow, (2) variational calculus and the derivation of the Euler-Lagrange equations of a generic functional, and (3) convex analysis and convex duality theory.
 For background reading, we refer the reader to \citet{greve2009dynamics} for glacier dynamics, \citet{weinstock1974calculus} for variational calculus, and \citet{boyd2004convex} for convex optimization.
 
+\section{Equations of motion}
 
+The Stokes equations with a power law rheology (commonly referred to as Glen's law \citep{glen1958law}) is the most common choice for modelling glaciers like viscous fluids \citep{greve2009dynamics}. Solving the Stokes equations in a three-dimensional setting will generally require a high computational cost. For this reason, it is common to simplify these equations by exploting the fact that glacier flow has a small ratio of thickness to horizontal length scale and that certain components of the strain rate tensor become negligible under certain circumstances. Here, we shall focus on the \emph{shallow stream/shelf approximation} (SSA), which assumes the flow of ice to be approximately invariant in the vertical direction (a plug flow); as a result, for a Cartesian coordinate system where the $z$-axis corresponds with the vertical direction of the glacier, the $x-z$ components of the strain rate tensor are much smaller than the $x-x$, $x-y$, and $y-y$ components. The equations of motion under the action of gravity are then derived by removing the pressure and integrating the momentum balance equation depthwise, as described in \cite[Section 6]{greve2009dynamics}. The equations of motion are then solved in a two-dimensional domain $\Omega$ whose boundary we denote by $\partial \Omega$.
 
-% --------------------------------
-\section{Primal action principles}
-
-Many publications in the glacier flow modeling literature have explored the advantages of using action principles to describe the momentum balance \citep{bassis2010hamilton, dukowicz2010consistent, brinkerhoff2013data, shapero2021icepack}.
-Here we briefly review these concepts as they pertain to the momentum balance model we study here, the \emph{shallow stream approximation} (SSA).
-The SSA model assumes that (1) the glacier flow has a small ratio of thickness to horizontal length scale and (2) the $x-z$ components of the strain rate tensor are much smaller than the $x-x$, $x-y$, and $y-y$ components.
-The unknowns are the ice velocity $u$ and the \emph{membrane stress tensor} $M$, a rank-2 tensor with units of stress or energy density that results from applying the above approximations to the 3D deviatoric stress tensor.
-
-First, the conservation law for membrane stress is
+In this setting, the unknowns are the depthwise averaged ice velocity $u$, the \emph{membrane stress tensor} $M$, a rank-2 tensor with units of stress or energy density that results from applying the above approximations to the 3D deviatoric stress tensor, the basal shear stress $\tau$, and the ice thickness $h$. Conservation of momentum for an ice sheet grounded on the bedrock is 
 \begin{equation}
-    \nabla\cdot hM + \tau - \rho gh\nabla s = 0
+    \nabla\cdot (hM) + \tau - \rho gh\nabla s = 0,
     \label{eq:membrane-stress-conservation}
 \end{equation}
-where $h$ and $s$ are the ice thickness and surface elevation and $\tau$ is the basal shear stress.
-
-To close the system of equations, we need to know a constitutive relation between the membrane stress tensor and the depth-averaged strain rate tensor
+where $s$ is the surface elevation, $\rho$ is the ice density, and $g$ the gravitational acceleration. In addition to \eqref{eq:membrane-stress-conservation}, we need to know a constitutive relation between the membrane stress tensor and the depth-averaged strain rate tensor
 \begin{equation}
     \dot\varepsilon = \frac{1}{2}\left(\nabla u + \nabla u^\top\right).
     \label{eq:strain-rate}
@@ -117,7 +109,55 @@ With these notational conveniences in hand, the Glen flow law states that the me
 \end{equation}
 where $A$ is the fluidity coefficient and $n \approx 3$ is the Glen flow law exponent.
 
-The constitutive relation for $M$ can also be expressed as the derivative of a certain scalar quantity:
+Next, we need to provide some kind of sliding relation.
+We will assume a generalized power law with some exponent $m$, i.e.
+\begin{equation}
+    \tau = -C|u|^{\frac{1}{m} - 1}u.
+    \label{eq:sliding-law}
+\end{equation}
+Weertman sliding has $m = n$, while perfectly plasting sliding has $m = \infty$.
+Recent research suggests alternative forms that transition between Weertman-type sliding at low speeds and perfectly plasting sliding at higher speeds \citep{minchew2020toward}.
+For illustrative purposes equation \eqref{eq:sliding-law} is sufficient, and we will describe how to incorporate alternatives in the discussion.
+
+To close the system of equations, the following depth-averaged statement for the conservation of mass can be derived:
+\begin{equation}
+	\frac{\partial h}{\partial t} + \nabla \cdot (hu) = a,
+	\label{eq:conservation-mass}
+\end{equation}
+where $a$ is the rate at which ice accumulates due to snowfall or melting. 
+
+For modelling a floating ice shelf, we remove the friction term in \eqref{eq:membrane-stress-conservation}. Moreover, momentum balance in the vertical direction leads to the hydrostatic flotation condition
+\begin{equation}
+	s = \delta h,
+	\label{eq:flotation-condition}
+\end{equation}
+where $\delta = 1 - \rho/\rho_w$, with $\rho_w$ denoting the density of the ocean water. As a result, conservation of momentum is given by
+\begin{equation}
+	\nabla\cdot (hM) = \rho g \delta h \nabla h.
+\end{equation}
+
+Marine ice sheets flow from the continent and into the ocean, where they go afloat. If we are to model a marine ice sheet with the SSA, we must distinguish between a grounded and a floating region. This results in a free boundary problem where ice goes float once the flotation condition \eqref{eq:flotation-condition} is satisfied. The boundary separating grounded from floating ice is known as the grounding line $x_g$. The possibility of a marine ice sheet isntability that could dramatically increase the rate of discharge of ice into the ocean has led to a substantial amount of research into grounding line dynamics \citep{schoof2007mis, durand2009mis, favier2012mis}.
+
+Finally, we need to supply a set of boundary conditions for the problem to be well-posed. These will be stated when introducing each of the problems considered in this paper.
+
+
+% --------------------------------
+\section{Primal action principles}
+
+Many publications in the glacier flow modeling literature have explored the advantages of using action principles to describe the momentum balance \citep{bassis2010hamilton, dukowicz2010consistent, brinkerhoff2013data, shapero2021icepack}.
+Here we briefly review these concepts as they pertain to the SSA momentum balance model \eqref{eq:membrane-stress-conservation} for a grounded ice sheet. For concreteness, in this section and the next we assume the following boundary conditions. We partition the boundary $\partial\Omega$ into an inflow region $\Gamma_i$ and the glacier terminus $\Gamma_t$. At $\Gamma_i$, we assume that the velocity is known from observations.
+This is a Dirichlet boundary condition.
+At $\Gamma_t$, the membrane stresses at the cliff face are balanced by pressures from any proglacial water body:
+\begin{equation}
+    -hM\cdot\nu = \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu
+    \label{eq:terminus-bc}
+\end{equation}
+where $h_W$ is the water depth and $\nu$ is the unit outward-pointing normal vector to the terminus.
+This is a Neumann boundary condition. 
+
+If we assume that the ice thickness $h$ is known, we can then combine equations \eqref{eq:membrane-stress-conservation}, \eqref{eq:strain-rate}, \eqref{eq:constitutive-relation}, and \eqref{eq:sliding-law} to arrive at a second-order, nonlinear system of partial differential equations for $u$. This equation can be derived as the optimality conditions of an action functional. We can see this with the aid of the antiderivatives of the membrance and basal stresses. 
+
+The constitutive relation \eqref{eq:constitutive-relation} for $M$ can be expressed as the derivative of a certain scalar quantity:
 \begin{equation}
     M = \frac{d}{d\dot\varepsilon}\left(\frac{2n}{n + 1}A^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr C}^{\frac{1}{n} + 1}\right)
     \label{eq:M-anti-derivative}
@@ -125,37 +165,16 @@ The constitutive relation for $M$ can also be expressed as the derivative of a c
 if we think of the strain rate tensor as an independent variable and briefly forget that it is the symmetrized velocity gradient.
 The chief difficulty in deriving what the action functional is for a particular problem usually boils down to computing anti-derivatives, which the previous equation furnishes for the viscous part.
 
-Next, we need to provide some kind of sliding relation.
-We will assume a generalized power law with some exponent $m$, i.e.
+By analogy with equation \eqref{eq:M-anti-derivative}, for the sliding relation \eqref{eq:sliding-law}, we can observe that
 \begin{equation}
-    \tau = -C|u|^{\frac{1}{m} - 1}u.
-    \label{eq:sliding-law}
-\end{equation}
-By analogy with equation \eqref{eq:M-anti-derivative}, we can observe that
-\begin{equation}
-    \tau = -\frac{d}{du}\left(\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\right)
+    \tau = -\frac{d}{du}\left(\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\right).
     \label{eq:tau-anti-derivative}
 \end{equation}
-Weertman sliding has $m = n$, while perfectly plasting sliding has $m = \infty$.
-Recent research suggests alternative forms that transition between Weertman-type sliding at low speeds and perfectly plasting sliding at higher speeds \citep{minchew2020toward}.
-For illustrative purposes equation \eqref{eq:sliding-law} is sufficient, and we will describe how to incorporate alternatives in the discussion.
 
-Finally, we need to supply a set of boundary conditions for the problem to be well-posed.
-At the inflow boundary of the domain, we assume that the velocity is known from observations.
-This is a Dirichlet boundary condition.
-At the glacier terminus, the membrane stresses at the cliff face are balanced by pressures from any proglacial water body:
-\begin{equation}
-    -hM\cdot\nu = \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu
-    \label{eq:terminus-bc}
-\end{equation}
-where $h_W$ is the water depth and $\nu$ is the unit outward-pointing normal vector to the terminus.
-This is a Neumann boundary condition.
-
-We can then combine equations \eqref{eq:membrane-stress-conservation}, \eqref{eq:strain-rate}, \eqref{eq:constitutive-relation}, and \eqref{eq:sliding-law} to arrive at a second-order, nonlinear system of partial differential equations for $u$.
-With the aid of equations \eqref{eq:M-anti-derivative}, \eqref{eq:tau-anti-derivative} for the anti-derivatives of the membrane and basal stresses, we can show that the shallow stream equations can be derived as the optimality conditions to find the minimum of the following action functional:
+Then, with equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative}, we can show that the shallow stream equations can be derived as the optimality conditions to find the minimum of the following action functional:
 \begin{align}
     J(u) & = \int_\Omega\left(\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} + \rho gh\nabla s\cdot u\right)dx  \nonumber \\
-    & \qquad + \frac{1}{2}\int_\Gamma\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma
+    & \qquad + \frac{1}{2}\int_{\Gamma_t}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma
     \label{eq:ssa-primal-action}
 \end{align}
 Note that the action has units of energy per unit time, or power.
@@ -657,3 +676,4 @@ For example, we can use the perturbation from equation \eqref{eq:regularized-new
 \bibliography{dual-problems.bib}
 
 \end{document}
+

@@ -10,6 +10,7 @@ import icepack
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", default="larsen-initial.h5")
 parser.add_argument("--outline", default="larsen.geojson")
+parser.add_argument("--refinement", type=int, default=0)
 parser.add_argument("--degree", type=int, default=1)
 parser.add_argument("--output", default="larsen-extrapolated.h5")
 args = parser.parse_args()
@@ -34,7 +35,9 @@ with open("larsen.geo", "w") as geometry_file:
 command = "gmsh -2 -v 0 -o larsen.msh larsen.geo"
 subprocess.run(command.split())
 
-mesh = firedrake.Mesh("larsen.msh")
+initial_mesh = firedrake.Mesh("larsen.msh")
+mesh_hierarchy = firedrake.MeshHierarchy(initial_mesh, args.refinement)
+mesh = mesh_hierarchy[-1]
 
 Q = firedrake.FunctionSpace(mesh, "CG", args.degree)
 V = firedrake.VectorFunctionSpace(mesh, "CG", args.degree)

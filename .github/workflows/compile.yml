@@ -37,6 +37,9 @@ jobs:
       - name: Install Python package
         run: pip install --editable demos/dualform
       - name: Compile TeX document
+        env:
+          EARTHDATA_USERNAME: ${{ secrets.EARTHDATA_USERNAME }}
+          EARTHDATA_PASSWORD: ${{ secrets.EARTHDATA_PASSWORD }}
         run: make
       - name: Upload PDF file
         uses: actions/upload-artifact@v3

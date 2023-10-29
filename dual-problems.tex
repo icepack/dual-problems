@@ -187,6 +187,12 @@ The main idea behind \emph{action} or \emph{minimization} principles is that som
 The momentum balance equation of glacier flow is one such PDE.
 Many publications in the glacier flow modeling literature have explored the advantages of using action principles to describe the momentum balance \citep{bassis2010hamilton, dukowicz2010consistent, brinkerhoff2013data, shapero2021icepack}.
 Here we briefly review these concepts as they pertain to the SSA momentum balance model \eqref{eq:membrane-stress-conservation}.
+
+Given a particular action functional, the PDE that expresses the condition that a field is an extremum can be calculated mechanically in terms of the integrand.
+This PDE is called the \emph{Euler-Lagrange} equation for the functional.
+We will not repeat it here but see \citet{weinstock1974calculus}.
+On the other hand, given an arbitrary PDE, there is no rote procedure that will determine if it is an Euler-Lagrange equation and what the corresonding functional should be.
+The dichotomy is akin to the fact that differentiation can always be carried out symbolically while computing anti-derivatives cannot.
 The main mathematical hurdle to overcome in determining what the action functional is for a particular problem is computing the anti-derivatives of certain terms in the differential equation.
 
 The constitutive relation \eqref{eq:constitutive-relation} for $M$ can be expressed as the derivative of a certain scalar quantity:
@@ -195,14 +201,12 @@ The constitutive relation \eqref{eq:constitutive-relation} for $M$ can be expres
     \label{eq:M-anti-derivative}
 \end{equation}
 if we think of the strain rate tensor as an independent variable and briefly forget that it is the symmetrized velocity gradient.
-
-By analogy with equation \eqref{eq:M-anti-derivative}, for the sliding relation \eqref{eq:sliding-law}, we can observe that
+Likewise, for the sliding relation \eqref{eq:sliding-law}, we can observe that
 \begin{equation}
     \tau = -\frac{d}{du}\left(\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\right).
     \label{eq:tau-anti-derivative}
 \end{equation}
-
-Then, with equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative}, we can show that the shallow stream equations can be derived as the optimality conditions to find the minimum of the following action functional:
+Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative}, we can show that the SSA momentum balance are the Euler-Lagrange equations for the following action functional:
 \begin{align}
     J(u) & = \int_\Omega\left(\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} + \rho gh\nabla s\cdot u\right)dx  \nonumber \\
     & \qquad + \frac{1}{2}\int_{\Gamma_t}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma

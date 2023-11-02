@@ -33,8 +33,11 @@ xU = mesh.coordinates.dat.data
 # mesh.coordinates.dat.data[:] = xU_new
 
 # set function spaces
+Hinit = H
 u0 = (args.rhoi * args.g * H / args.C * np.tan(alpha))**args.n
 xg0 = (args.H0 + args.rhoi/args.rhow * H) / np.tan(alpha)
+delta = 1 - args.rhoi/args.rhow
+tau0 = 0.5 * delta * args.rhoi * args.g * args.H**2
 
 if args.FE == "P2P2" or args.FE == "P1P1":
     if args.FE == "P2P2":
@@ -50,7 +53,7 @@ if args.FE == "P2P2" or args.FE == "P1P1":
 
     # set initial conditions
     z.sub(0).interpolate(Constant(u0))
-    z.sub(1).interpolate(Constant(H))
+    z.sub(1).interpolate(Constant(Hinit))
     z.sub(2).assign(Constant(xg0))
 
     # set residual
@@ -73,7 +76,8 @@ elif args.FE == "P1P1DP0" or args.FE == "P2P2DP1":
 
     # set initial conditions
     z.sub(0).interpolate(Constant(u0))
-    z.sub(1).interpolate(Constant(H))
+    z.sub(1).interpolate(Constant(Hinit))
+    # z.sub(2).interpolate(Constant(tau0))
     z.sub(3).assign(Constant(xg0))
 
     # set residual
@@ -126,10 +130,12 @@ print("flotation thickness :: %.4e (m)" % (h.dat.data[indQ[-1]] * xc))
 
 # get solver info
 fnorm, it = solver.snes.getConvergenceHistory()
+fnorm = fnorm/fnorm[0]
 
 # save
 if args.save:
     print("Saving files...")
     from functions import path_name
     path = path_name(args_dim)
+    print(path)
     save_primal(z, path, args_dim, b_fcn_dim, fnorm, xc, hc, uc)

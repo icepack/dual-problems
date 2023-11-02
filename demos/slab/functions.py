@@ -8,13 +8,13 @@ import ast
 
 params_nl = {
          "snes_monitor": None,
-         "snes_linesearch_type": "l2",
+        #  "snes_linesearch_type": "l2",
          "snes_max_it": 100,
-         "snes_rtol": 1.0e-12,
-         "snes_atol": 1.0e-12,
-         "snes_stol": 1e-14,
+         "snes_rtol": 1.0e-8,
+         "snes_atol": 0,
+         "snes_stol": 0,
          "snes_converged_reason": None,
-         "snes_linesearch_monitor": None,
+        #  "snes_linesearch_monitor": None,
          }
 
 params_lu = {
@@ -60,9 +60,9 @@ def get_default_parser():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--N", type = int, required = True)
     parser.add_argument("--FE", type=str, default="P1P1", choices = ["P1P1","P2P2","P1P1DP0","P2P2DP1"])
-    parser.add_argument("--H", type = float, default = 2e2)
+    parser.add_argument("--H", type = float, default = 5e2)
     parser.add_argument("--alpha", type = float, default = 1)
-    parser.add_argument("--H0", type = float, default = 200)
+    parser.add_argument("--H0", type = float, default = 1500)
     parser.add_argument("--A", type = float, default = 1e-24)
     parser.add_argument("--C", type = float, default = 1e6)
     parser.add_argument("--n", type = int, default = 3)

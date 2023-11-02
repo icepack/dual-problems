@@ -2,7 +2,7 @@ import os
 import argparse
 import ast
 import numpy as np
-#from figure_settings import pgf_with_latex
+# from figure_settings import pgf_with_latex
 from functions import path_name, get_default_parser, recover_coordinates_1D
 
 k = [1]
@@ -15,18 +15,18 @@ command = "python slab.py --N %d --save --H0 %d --H %d --A %.e --C %.e --n %d " 
 
 # prepare loop
 args_copy = argparse.Namespace(**vars(args))
-its = np.zeros([len(k), len(reg)])
-min_norm = np.zeros([len(k), len(reg)])
-max_norm = np.zeros([len(k), len(reg)])
+its = np.zeros([len(k), len(reg) + 1])
+min_norm = np.zeros([len(k), len(reg) + 1])
+max_norm = np.zeros([len(k), len(reg) + 1])
 xg = np.zeros([len(k), len(reg) + 1])
 hxg = np.zeros([len(k), len(reg) + 1])
 
 # set plot for fnorm
 from matplotlib import pylab as plt
 import matplotlib
-#matplotlib.rcParams.update(pgf_with_latex(1, hscale = 0.5))
+# matplotlib.rcParams.update(pgf_with_latex(1, hscale = 0.5))
 
-fig, ax = plt.subplots(1,len(k))
+fig, ax = plt.subplots(1,len(k), figsize=(6, 3.2))
 cmap = matplotlib.cm.get_cmap('Reds')
 colors = [cmap(i) for i in np.linspace(0.25,1,len(reg))]
 
@@ -61,9 +61,10 @@ for i, ki in enumerate(k):
         xg[i,j] = float(np.loadtxt(path + "/xg.txt"))/1000.
         hxg[i,j] = np.loadtxt(path + "/h.txt")[-1]
         fnorm.append(np.loadtxt(path + "/newton_norm.txt"))
-        its[i,j] = len(fnorm[j])
+        its[i,j] = len(fnorm[j]) - 1
         min_norm[i,j] = 10**(np.floor(np.log10(min(fnorm[j]))))
         max_norm[i,j] = 10**(np.ceil(np.log10(max(fnorm[j]))))
+        print("Number its :: %d" % its[i,j])
 
     # dual solver
     if ki == 1:
@@ -83,7 +84,8 @@ for i, ki in enumerate(k):
     fnorm.append(np.loadtxt(path + "/newton_norm.txt"))
     min_norm[i,-1] = 10**(np.floor(np.log10(min(fnorm[-1]))))
     max_norm[i,-1] = 10**(np.ceil(np.log10(max(fnorm[-1]))))
-    its[i,-1] = len(fnorm[-1])
+    its[i,-1] = len(fnorm[-1]) - 1
+    print("Number its :: %d" % its[i,-1])
 
     # Find values of reg for which we obtain the same value of xg
     ind_acc = np.where(np.abs(xg[i,-1]-xg[i,:-1])/xg[i,-1] < 0.001)[0]
@@ -120,14 +122,17 @@ for i in range(len(k)):
     else:
         axi = ax[i]
     axi.set_xlim([0,maxits])
-    axi.set_ylim([min_norm,max_norm])
+    # axi.set_ylim([min_norm,max_norm])
+    axi.set_xlim([0,10])
+    axi.set_xticks([0, 2, 4, 6, 8, 10])
     axi.grid()
     axi.set_xlabel("iterations")
     axi.set_yscale('log')
-    axi.set_xticks(np.linspace(0,maxits,5))
+    # axi.set_xticks(np.linspace(0,maxits,5))
     if i == 0:
-        axi.set_ylabel("Newton residual norm")
-        axi.legend(fontsize = 6, ncol = 4, loc='upper center', bbox_to_anchor=(0.5, 1.25))
+        axi.set_ylabel("relative Newton residual norm")
+        # axi.legend(fontsize = 6, ncol = 4, loc='upper center', bbox_to_anchor=(0.5, 1.25))
+        axi.legend(fontsize = 7, ncol = 2, loc='lower left')
 
 fig.savefig("figures/newton_its_alpha%.2f.pdf" % args.alpha, bbox_inches = 'tight', pad_inches = 0.02)
 plt.close(fig)
@@ -152,7 +157,7 @@ for i in range(len(reg)):
     table_file.write(line)
 line = "dual & - "
 for j in range(len(k)):
-    line += "& %.2f & %.2f & %d " % (xg[j,i], hxg[j,i], its[j,i])
+    line += "& %.2f & %.2f & %d " % (xg[j,-1], hxg[j,-1], its[j,-1])
 table_file.write(line)
 table_file.close()
 
@@ -209,7 +214,7 @@ xall = np.append(xH,xshelf[1:])
 theta = np.append(bed(xH), theta_SSA[1:])
 ztop = np.append(bed(xH) + hdof, ztop_SSA[1:])
 bed_points = bed(xall)
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(6, 3.2))
 xall *= 1e-3
 ax.plot(xall,np.zeros(xall.size), color = "black", linestyle = "--", linewidth = 1)
 ax.plot(xall,bed_points, color = "black", linewidth = 1)

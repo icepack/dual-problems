@@ -5,8 +5,8 @@ import numpy as np
 # from figure_settings import pgf_with_latex
 from functions import path_name, get_default_parser, recover_coordinates_1D
 
-k = [1]
-reg = [1e-4, 1e-6, 1e-8, 1e-10, 1e-12, 1e-14, 1e-16]
+k = [2]
+reg = [1, 1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12]
 
 # set parser and command
 parser = get_default_parser()
@@ -26,7 +26,7 @@ from matplotlib import pylab as plt
 import matplotlib
 # matplotlib.rcParams.update(pgf_with_latex(1, hscale = 0.5))
 
-fig, ax = plt.subplots(1,len(k), figsize=(6, 3.2))
+fig, ax = plt.subplots(1,len(k), figsize=(6, 2.5))
 cmap = matplotlib.cm.get_cmap('Reds')
 colors = [cmap(i) for i in np.linspace(0.25,1,len(reg))]
 
@@ -123,42 +123,43 @@ for i in range(len(k)):
         axi = ax[i]
     axi.set_xlim([0,maxits])
     # axi.set_ylim([min_norm,max_norm])
-    axi.set_xlim([0,10])
-    axi.set_xticks([0, 2, 4, 6, 8, 10])
+    axi.set_xlim([0,16])
+    axi.set_xticks([0, 4, 8, 12, 16])
     axi.grid()
     axi.set_xlabel("iterations")
     axi.set_yscale('log')
     # axi.set_xticks(np.linspace(0,maxits,5))
     if i == 0:
-        axi.set_ylabel("relative Newton residual norm")
+        axi.set_ylabel("relative residual norm")
         # axi.legend(fontsize = 6, ncol = 4, loc='upper center', bbox_to_anchor=(0.5, 1.25))
-        axi.legend(fontsize = 7, ncol = 2, loc='lower left')
+        axi.legend(fontsize = 7, ncol = 2, loc='upper right')
 
 fig.savefig("figures/newton_its_alpha%.2f.pdf" % args.alpha, bbox_inches = 'tight', pad_inches = 0.02)
 plt.close(fig)
 
 # save table and plot
 table_file = open("tables/table_alpha%.2f.txt" % args.alpha, "w")
-line1 = "solver & $\\epsilon\\,\\si{a}^{-1}$"
-for i in range(len(k)):
-    line1 += " & $x_g\\,\\si{km}$ & $h(x_g)\\,\\si{m}$ & iterations "
-line1 += "\\\\ \n"
-table_file.write(line1)
 for i in range(len(reg)):
     if i == 0:
         line = "\\multirow{%d}{*}{primal} & " % len(reg)
     else:
         line = " & "
     exp = np.log10(reg[i])
-    line += "$10^{%d}$ " % exp
+    if exp == 0:
+        line += "1"
+    else:
+        line += "$10^{%d}$ " % exp
     for j in range(len(k)):
         line += "& %.2f & %.2f & %d " % (xg[j,i], hxg[j,i], its[j,i])
     line += " \\\\ \n"
     table_file.write(line)
+table_file.write("\\midrule \n")
 line = "dual & - "
 for j in range(len(k)):
     line += "& %.2f & %.2f & %d " % (xg[j,-1], hxg[j,-1], its[j,-1])
+line += " \\\\ \n"
 table_file.write(line)
+table_file.write("\\bottomrule")
 table_file.close()
 
 # plot strain rates and geometry

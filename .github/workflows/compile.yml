@@ -1,5 +1,5 @@
 name: 'Compile and upload document'
-on: [push]
+on: [push, pull_request]
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}

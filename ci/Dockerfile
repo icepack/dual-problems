@@ -1,5 +1,5 @@
 
-FROM firedrakeproject/firedrake@sha256:ee91b0c25ef044b09a3e33807b2a0fddc98df74e7f96d5fac5c0319ab1a95bf1
+FROM firedrakeproject/firedrake-vanilla:2023-11
 
 MAINTAINER shapero@uw.edu
 
@@ -10,4 +10,6 @@ RUN sudo apt update && \
 
 RUN git clone https://github.com/icepack/icepack.git && \
     cd icepack && \
+    pip install git+https://github.com/icepack/Trilinos.git && \
+    pip install git+https://github.com/icepack/pyrol.git && \
     pip install --editable .

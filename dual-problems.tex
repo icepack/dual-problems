@@ -104,10 +104,10 @@ Some important intermediate quantities are the basal shear stress $\tau$ and the
 The inputs to the problem include the thickness $h$, surface elevation $s$, and fluidity factor $A$ in Glen's flow law.
 The SSA momentum conservation equation is
 \begin{equation}
-    \nabla\cdot hM + \tau - \rho gh\nabla s = 0,
+    \nabla\cdot hM + \tau - \rho_I gh\nabla s = 0,
     \label{eq:membrane-stress-conservation}
 \end{equation}
-where $\rho$ is the ice density, and $g$ the gravitational acceleration.
+where $\rho_I$ is the ice density, and $g$ the gravitational acceleration.
 In addition to \eqref{eq:membrane-stress-conservation}, we need to know a constitutive relation between the membrane stress tensor and the depth-averaged strain rate tensor
 \begin{equation}
     \dot\varepsilon = \frac{1}{2}\left(\nabla u + \nabla u^\top\right).
@@ -208,7 +208,7 @@ Likewise, for the sliding relation \eqref{eq:sliding-law}, we can observe that
 \end{equation}
 Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative}, we can show that the SSA momentum balance are the Euler-Lagrange equations for the following action functional:
 \begin{align}
-    J(u) & = \int_\Omega\left(\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} + \rho gh\nabla s\cdot u\right)dx  \nonumber \\
+    J(u) & = \int_\Omega\left(\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} + \rho_I gh\nabla s\cdot u\right)dx  \nonumber \\
     & \qquad + \frac{1}{2}\int_{\Gamma_t}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma
     \label{eq:ssa-primal-action}
 \end{align}
@@ -391,7 +391,7 @@ As a first check that we implemented the dual form of the SSA correctly, we used
 in a domain of length $L_x = 20$km.
 With a constant value of the fluidity coefficient, the velocity in the $x$ direction is
 \begin{equation}
-    u_x = u_0 + L_x A \left(\frac{\rho g h_0}{4}\right)^n\left(1 - \left(1 - \frac{\delta h \cdot x}{h_0\cdot L_x}\right)^{n + 1}\right).
+    u_x = u_0 + L_x A \left(\frac{\rho_I g h_0}{4}\right)^n\left(1 - \left(1 - \frac{\delta h \cdot x}{h_0\cdot L_x}\right)^{n + 1}\right).
 \end{equation}
 We used a 2D domain in order to make sure that the numerical solution, like the exact solution, has no variation in the $y$ direction.
 We tested meshes with between 16 and 256 cells to a side and we used both degree-1 and degree-2 finite elements for the velocity.
@@ -418,15 +418,23 @@ Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution
 	\label{fig:domain_parallel_slab}
 \end{figure}
 
-As a more challenging test in a flowline setting, we consider a slab of ice of constant thickness flowing down an inclined slope into the ocean, where it goes afloat at the grounding line, as illustrated in Figure \ref{fig:domain_parallel_slab}. We compute steady states under this configuration using the primal and dual methods described above. We set the ice thickness at $x = 0$ to $h = 500\, \mathrm{m}$ and the bedrock angle to $\alpha = 0.5^\circ$. The bed is given by the expression
+As a more challenging test in a flowline setting, we consider a slab of ice of constant thickness flowing down an inclined slope into the ocean, where it goes afloat at the grounding line, as illustrated in Figure \ref{fig:domain_parallel_slab}. We compute steady states under this configuration using the primal and dual methods described above. We set the ice thickness at $x = 0$ to $h = 500\, \mathrm{m}$ and the bedrock angle to $\alpha = 1^\circ$. The bed is given by the expression
 %
 \begin{align}
 	b(x) = 1500 - x\tan{\alpha},
 \end{align}
 %
-with units in meters. For the material parameters, we set $n = 3$, $A = 10^{-24}\,\mathrm{Pa}^{-3}\,\mathrm{s}^{-1}$, $C = 10^{-5}\,\mathrm{Pa}\,\mathrm{m}^{-1/3}\mathrm{s}^{1/3}$. For this problem, we do not only solve for the velocity $u$ or the velocity-stress pair $(u,M)$, but also for the thickness and the grounding line position. We therefore complement the momentum balance equations with the mass balance equation and the flotation condition, effectively yielding a free boundary problem. Far upstream from the grounding line, the ice adopts a constant thickness regime in which gravitational forces are balanced by basal stresses. As a result, the strain rate scalar tends to zero as $x$ approaches 0 and regularisation of the primal formulation becomes necessary.
+with units in meters. For the material parameters, we set $n = 3$, $A = 10^{-24}\,\mathrm{Pa}^{-3}\,\mathrm{s}^{-1}$, $C = 10^{-6}\,\mathrm{Pa}\,\mathrm{m}^{-1/3}\mathrm{s}^{1/3}$. Instead of setting inflow boundary conditions at $x = 0$, we enforce a zero extensional stress condition $M = 0$.  This condition allows the ice sheet to tend to the uniform thickness slab solution far upstream of the grounding line. For the uniform slab, the extensional stresses are equal to zero and the frictional stresses at the base of the ice sheet balance the gravitational forces. As a result, the horizontal velocity for the uniform thickness slab is given by
+%
+\begin{align}\label{eq:u_slab}
+	u = \left(\frac{\rho_I g h \tan(\alpha)}{C}\right)^n.
+\end{align}
+%
+A consequence of enforcing the slab solution at the left boundary is that, as we move upstream away from the grounding line, the strain rate tends to zero and one must regularise the primal formulation of the momentum balance equation.
 
-We solve the free boundary problem with a primal method that seeks the velocity and thickness in $CG(1)\times CG(1)$, and with a dual method that computes the velocity, membrane stress and thickness in the space $CG(1)\times DG(0)\times CG(1)$. For the primal method, we consider a sequence of regularisation parameters $\epsilon$ between $10^{-4}\, \mathrm{yr}^{-1}$ and $10^{-16}\,\mathrm{yr}^{-1}$. The results for the grounding line position are displayed in Table \ref{tab:slab}. Additionally, we plot the iterations of the Newton residual in Figure \ref{fig:newton-its}. We can see that not only is the dual method just as accurate as the primal method solved using the lowest value of regularisation, but the Newton solver experiences a rate of convergence which is quickly lost for low values of $\epsilon$ when used with the primal method.
+For this problem, we not only solve for the velocity $u$ or the velocity-stress pair $(u,M)$, but also for the thickness $h$ and the grounding line position $x_g$. We therefore complement the momentum balance equations with the mass balance equation \eqref{eq:conservation-mass} and the flotation condition \eqref{eq:flotation-condition}, effectively yielding a free boundary problem.
+
+We solve the free boundary problem with a primal method that seeks the velocity and thickness in $CG(2)\times CG(2)$, and with a dual method that computes the velocity, membrane stress and thickness in the space $CG(2)\times DG(1)\times CG(2)$. For the primal method, we consider a sequence of regularisation parameters $\epsilon$ between $1\, \mathrm{yr}^{-1}$ and $10^{-12}\,\mathrm{yr}^{-1}$. The results for the grounding line position are displayed in Table \ref{tab:slab}. The discrete problem is solved with Newton's method, and the initial guess for the values of the ice velocity, the ice thickness, and the extensional stress are set equal to the slab solution, such that $h = 500\,\mathrm{m}$, $u$ is equal to \eqref{eq:u_slab}, and $M = 0$. The initial guess for the grounding line position is set to the point where the flotation condition \eqref{eq:flotation-condition} holds for the constant thickness slab. We plot the values of the relative Newton residual in Figure \ref{fig:newton-its}. We can see that not only is the dual method just as accurate as the primal method solved using the lowest value of regularisation, but the rate of convergence of the Newton solver for the primal formulation quickly decreases for low values of $\epsilon$. In fact, for values of $\epsilon$ equal to or lower than $10^{-14}\,\mathrm{yr}^{-1}$, the relative Newton residual no longer reaches the minimum tolerance of $10^{-8}$ that we set for this problem.
 
 %\renewcommand{\arraystretch}{1.25}
 \begin{table}[t]
@@ -437,23 +445,14 @@ We solve the free boundary problem with a primal method that seeks the velocity 
 \toprule
 solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}$ & iterations \\
 \midrule
-\multirow{7}{*}{primal} & $10^{-4}$ & 189.08 & 163.64 & 7  \\
- & $10^{-6}$ & 203.19 & 297.90 & 6  \\
- & $10^{-8}$ & 214.86 & 408.98 & 7  \\
- & $10^{-10}$ & 215.19 & 412.18 & 9  \\
- & $10^{-12}$ & 215.20 & 412.22 & 19  \\
- & $10^{-14}$ & 215.20 & 412.22 & 17  \\
- & $10^{-16}$ & 215.20 & 412.22 & 24  \\
-\midrule
-dual & - & 215.20 & 412.22 & 7 \\
-\bottomrule
+\input{demos/slab/tables/table_alpha1.00.txt}
 \end{tabular}
 \end{table}
 
 \begin{figure}[t]
 	\centering
-	\includegraphics[width=\linewidth]{demos/slab/figures/newton_its_alpha0.50.pdf}
-	\caption{Results for the slab of ice flowing into the ocean. Norm of the (absolute) Newton residual for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation.}
+	\includegraphics[width=\linewidth]{demos/slab/figures/newton_its_alpha1.00.pdf}
+	\caption{Results for the slab of ice flowing into the ocean. Norm of the relative Newton residual for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation.}
 	\label{fig:newton-its}
 \end{figure}
 

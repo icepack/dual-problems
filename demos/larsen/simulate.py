@@ -4,7 +4,7 @@ import numpy as np
 import geojson
 import xarray
 import firedrake
-from firedrake import assemble, Constant, inner, grad, dx, ds
+from firedrake import assemble, Constant, inner, grad, dx, ds, dS
 import icepack
 from icepack.constants import glen_flow_law as n
 from dualform import ice_shelf
@@ -25,6 +25,7 @@ with firedrake.CheckpointFile(args.input, "r") as chk:
     μ_obs = chk.load_function(mesh, name="mask")
 
 Q = firedrake.FunctionSpace(mesh, "CG", args.degree)
+Δ = firedrake.FunctionSpace(mesh, "DG", args.degree)
 V = firedrake.VectorFunctionSpace(mesh, "CG", args.degree)
 Σ = firedrake.TensorFunctionSpace(mesh, "DG", args.degree - 1, symmetry=True)
 Z = V * Σ
@@ -45,6 +46,7 @@ h = h_obs.copy(deepcopy=True)
 J = 0.5 * ((h - h_obs) ** 2 + α**2 * inner(grad(h), grad(h))) * dx
 F = firedrake.derivative(J, h)
 firedrake.solve(F == 0, h)
+h = firedrake.interpolate(h, Δ)
 
 μ = firedrake.project(μ_obs, Q)
 J = 0.5 * ((μ - μ_obs) ** 2 + α**2 * inner(grad(μ), grad(μ))) * dx
@@ -62,7 +64,12 @@ A0 = icepack.rate_factor(T)
 A = A0 * firedrake.exp(θ)
 τ_c = firedrake.interpolate((ε_c / A)**(1 / n), Q)
 
-fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
+fns = [
+    ice_shelf.viscous_power,
+    ice_shelf.boundary,
+    ice_shelf.constraint,
+    ice_shelf.constraint_edges,
+]
 
 u, M = firedrake.split(z)
 fields = {
@@ -123,13 +130,15 @@ u_solver.solve()
 # Set up the mass balance equation
 h_n = h.copy(deepcopy=True)
 h0 = h.copy(deepcopy=True)
-φ = firedrake.TestFunction(Q)
+φ = firedrake.TestFunction(h.function_space())
 dt = Constant(1.0 / args.timesteps_per_year)
 flux_cells = ((h - h_n) / dt * φ - inner(h * u, grad(φ))) * dx
 ν = firedrake.FacetNormal(mesh)
+f = h * firedrake.max_value(0, inner(u, ν))
+flux_facets = (f("+") - f("-")) * (φ("+") - φ("-")) * dS
 flux_in = h0 * firedrake.min_value(0, inner(u, ν)) * φ * ds
 flux_out = h * firedrake.max_value(0, inner(u, ν)) * φ * ds
-G = flux_cells + flux_in + flux_out
+G = flux_cells + flux_facets + flux_in + flux_out
 h_problem = firedrake.NonlinearVariationalProblem(G, h)
 h_solver = firedrake.NonlinearVariationalSolver(h_problem)
 

@@ -1,5 +1,6 @@
+import ufl
 import firedrake
-from firedrake import Constant, inner, sym, grad, dx, ds
+from firedrake import Constant, inner, sym, grad, dx, ds, dS
 import icepack
 from .viscosity import power as viscous_power
 
@@ -30,3 +31,12 @@ def constraint(**kwargs):
     u, M, h = map(kwargs.get, ("velocity", "membrane_stress", "thickness"))
     ε = sym(grad(u))
     return (-h * inner(M, ε) - inner(0.5 * ρ * g * grad(h**2), u)) * dx
+
+
+def constraint_edges(**kwargs):
+    u, h = map(kwargs.get, ("velocity", "thickness"))
+    mesh = ufl.domain.extract_unique_domain(u)
+    ν = firedrake.FacetNormal(mesh)
+    u_ν = inner(u, ν)
+    return 0.5 * ρ * g * (h("+")**2 * u_ν("+") + h("-")**2 * u_ν("-")) * dS
+

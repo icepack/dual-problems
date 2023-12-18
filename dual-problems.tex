@@ -533,6 +533,41 @@ In summary, it appears as if solvers for the dual form can still converge even w
 Achieving this convergence may require more coaxing in the form of shorter timesteps, more regularized Jacobians, or more numerical continuation steps.
 We regard this tradeoff as a net positive if primal solvers cannot be made to converge even with substantial encouragement.
 
+\subsection{Larsen C Ice Shelf}
+
+\begin{figure}[t]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/larsen/contours.pdf}
+    \end{center}
+    \caption{Calving terminus locations for Larsen C Ice Shelf prognostic simulation.
+    The contours shown are at the start of the run, immediately after the simulated calving event, and several years later when the ice shelf has readvanced slightly.}
+    \label{fig:larsen-terminus-position}
+\end{figure}
+
+To test the dual momentum balance equations on a realistic problem, we simulated the evolution of the Larsen C Ice Shelf through the calving of Iceberg A-68 in 2017 \citep{larour2021physical}.
+We used the observed front positions from satellite imagery to set the terminus positions before and after the calving event; we did not implement a calving law as such.
+The Larsen C simulation requires several steps.
+\begin{enumerate}
+    \item We first estimated the fluidity field (the coefficient $A$ in the Glen law $\dot\varepsilon = A\tau^3$) of the ice shelf from remote sensing measurements of the thickness and velocity.
+        This step uses the primal form of the momentum balance equation from icepack.
+    \item We extrapolated the ice thickness and velocity onto a larger spatial domain.
+    \item We ran the simulation using the mass and dual momentum balance from the nominal start date of 2015 until the time of the calving event in \textcolor{red}{2017}.
+    \item We digitized the terminus position immediately after the calving event by hand and use the digitized terminus position to define an ice mask.
+        \textcolor{red}{We only have a digitized outline for 2019 so we actually used that as the calving event time, we should probably fix that before submitting this, but the idea is the same.}
+    \item Using this mask, we set the ice thickness to zero over the spatial extent of the calved area.
+    \item We ran the simulation for several more years after the calving event to see how the terminus advances again.
+\end{enumerate}
+The simulated terminus positions are shown in figure \ref{fig:larsen-terminus-position}.
+The model can effectively handle the shock of a calving event and the subsequent readvance of the terminus.
+
+We used the CG(1)/DG(0) pair for the velocity and stress as in the previous examples.
+To simulate the evolution of the glacier thickness, we used DG(1) elements together with the upwind numerical flux.
+We found that using a DG discretization was necessary to get a reasonable-looking thickness.
+When using continuous elements for the thickness, we found that the thickness field would develop spurious oscillations generated at the calving terminus.
+This finding is to be expected because continuous elements usually fare poorly at advecting sharp features like an advancing ice cliff.
+
+To solve the dual momentum balance equation, we used a linearly implicit scheme (see Appendix \ref{subsec:linearly-implicit-schemes}) with a hand-tuned choice of 10 Newton steps per iteration.
+This approach does not exactly solve the discretized dual momentum balance equation with finite timesteps but the approximation error converges to zero in the limit as the stepsize is reduced.
 
 \section{Discussion}
 
@@ -669,6 +704,7 @@ Trust region methods instead adaptively select $\lambda$ in equation \eqref{eq:r
 One of the key advantages of trust region methods is that they can cope well with functional that have degenerated second derivatives while still achieving superlinear or even quadratic convergence rates.
 
 \subsection{Linearly implicit schemes}
+\label{subsec:linearly-implicit-schemes}
 
 Finally, we might recognize that the momentum balance equation is only one part of the overall dynamics.
 For a time-dependent simulation these are certain to include the mass balance equation, and they may include heat flow or other effects as well.

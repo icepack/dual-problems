@@ -72,8 +72,10 @@ axes.get_yaxis().set_visible(False)
 colors = ["tab:blue", "tab:green", "tab:purple"]
 handles = []
 for time_index, color in zip(time_indices, colors):
+    Q = firedrake.FunctionSpace(mesh, "CG", 1)
+    h = firedrake.project(hs[time_index], Q)
     contourset = firedrake.tricontour(
-        hs[time_index], levels=[0.0, 20.0], colors=["black", color], axes=axes,
+        h, levels=[0.0, 20.0], colors=[(0, 0, 0, 0), color], axes=axes,
     )
     handles.append(contourset.legend_elements()[0][-1])
 texts = ["2015", "2019", "2027"]

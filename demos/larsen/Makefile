@@ -1,4 +1,4 @@
-volumes.pdf thickness.pdf &: larsen-simulation.h5
+volumes.pdf thickness.pdf contours.pdf &: larsen-simulation.h5
 	python make_plots.py
 
 larsen-simulation.h5: simulate.py larsen-extrapolated.h5

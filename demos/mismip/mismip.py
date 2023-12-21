@@ -14,9 +14,12 @@ from firedrake import (
     grad,
     dx,
     ds,
+    dS,
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
 )
+import irksome
+from irksome import Dt
 from icepack.constants import (
     ice_density as ρ_I,
     water_density as ρ_W,
@@ -44,13 +47,15 @@ area = lx * ly
 
 mesh = firedrake.RectangleMesh(nx, ny, lx, ly, diagonal="crossed")
 
-cg = firedrake.FiniteElement("CG", "triangle", 1)
-dg = firedrake.FiniteElement("DG", "triangle", 0)
+cg1 = firedrake.FiniteElement("CG", "triangle", 1)
+dg0 = firedrake.FiniteElement("DG", "triangle", 0)
+dg1 = firedrake.FiniteElement("DG", "triangle", 1)
 
-Q = firedrake.FunctionSpace(mesh, cg)
-V = firedrake.VectorFunctionSpace(mesh, cg)
-Σ = firedrake.TensorFunctionSpace(mesh, dg, symmetry=True)
-T = firedrake.VectorFunctionSpace(mesh, cg)
+S = firedrake.FunctionSpace(mesh, cg1)
+Q = firedrake.FunctionSpace(mesh, dg1)
+V = firedrake.VectorFunctionSpace(mesh, cg1)
+Σ = firedrake.TensorFunctionSpace(mesh, dg0, symmetry=True)
+T = firedrake.VectorFunctionSpace(mesh, dg0)
 Z = V * Σ * T
 
 # Set up the basal elevation.
@@ -75,7 +80,7 @@ B_y = d_c * (
 )
 
 z_deep = Constant(-720)
-b = interpolate(max_value(B_x + B_y, z_deep), Q)
+b = interpolate(max_value(B_x + B_y, z_deep), S)
 
 # Some physical constants; `A = ε_c / τ_c ** n`, `C = τ_c / u_c ** (1 / m)`.
 # Rather than work with the fluidity `A` and friction `C` directly, we use
@@ -156,19 +161,23 @@ dt = Constant(args.timestep)
 φ = firedrake.TestFunction(Q)
 ν = firedrake.FacetNormal(mesh)
 
-G_cells = ((h - h_k) / dt * φ - inner(h * u, grad(φ)) - a * φ) * dx
+G_cells = (Dt(h) * φ - inner(h * u, grad(φ)) - a * φ) * dx
+f = h * max_value(0, inner(u, ν))
+G_facets = (f("+") - f("-")) * (φ("+") - φ("-")) * dS
 G_inflow = h_0 * min_value(0, inner(u, ν)) * φ * ds
-G_outflow = h * max_value(0, inner(u, ν)) * φ * ds
+G_outflow = f * φ * ds
 
-G = G_cells + G_inflow + G_outflow
-mass_problem = NonlinearVariationalProblem(G, h)
-mass_solver = NonlinearVariationalSolver(mass_problem)
+G = G_cells + G_facets + G_inflow + G_outflow
+tableau = irksome.BackwardEuler()
+dt = Constant(args.timestep)
+t = Constant(0.0)
+mass_solver = irksome.TimeStepper(G, tableau, t, dt, h)
 
 # Solve the coupled mass and momentum balance equations for several centuries.
 num_steps = int(args.final_time / float(dt))
 progress_bar = tqdm.trange(num_steps)
 for step in progress_bar:
-    mass_solver.solve()
+    mass_solver.advance()
     h.interpolate(max_value(0, h))
     h_k.assign(h)
 

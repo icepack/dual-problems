@@ -1,3 +1,4 @@
+import sys
 import argparse
 import tqdm
 import numpy as np
@@ -147,7 +148,15 @@ J_1 = firedrake.derivative(F_1, z)
 J = firedrake.derivative(F, z)
 
 α = Constant(1e-3)
-params = {"solver_parameters": {"snes_max_it": 200}}
+params = {
+    "solver_parameters": {
+        "snes_type": "newtonls",
+        "ksp_type": "gmres",
+        "pc_type": "lu",
+        "pc_factor_mat_solver_type": "mumps",
+        "snes_max_it": 200,
+    },
+}
 momentum_problem = NonlinearVariationalProblem(F, z, bcs, J=J + α * J_1)
 momentum_solver = NonlinearVariationalSolver(momentum_problem, **params)
 momentum_solver.solve()
@@ -156,7 +165,6 @@ momentum_solver.solve()
 # equation.
 a = Constant(0.3)
 
-h_k = h.copy(deepcopy=True)
 dt = Constant(args.timestep)
 φ = firedrake.TestFunction(Q)
 ν = firedrake.FacetNormal(mesh)
@@ -174,25 +182,36 @@ t = Constant(0.0)
 mass_solver = irksome.TimeStepper(G, tableau, t, dt, h)
 
 # Solve the coupled mass and momentum balance equations for several centuries.
-num_steps = int(args.final_time / float(dt))
-progress_bar = tqdm.trange(num_steps)
-for step in progress_bar:
-    mass_solver.advance()
-    h.interpolate(max_value(0, h))
-    h_k.assign(h)
-
-    s.interpolate(max_value(b + h, (1 - ρ_I / ρ_W) * h))
-    momentum_solver.solve()
-
-    min_h = h.dat.data_ro.min()
-    avg_h = firedrake.assemble(h * dx) / area
-    description = f"avg, min h: {avg_h:4.2f}, {min_h:4.2f}"
-    progress_bar.set_description(description)
-
-# Write the results to disk.
-u, M, τ = z.subfunctions
 with firedrake.CheckpointFile(args.output, "w") as chk:
-    chk.save_function(u, name="velocity")
-    chk.save_function(M, name="membrane_stress")
-    chk.save_function(τ, name="basal_stress")
-    chk.save_function(h, name="thickness")
+    u, M, τ = z.subfunctions
+    chk.save_function(u, name="velocity", idx=0)
+    chk.save_function(M, name="membrane_stress", idx=0)
+    chk.save_function(τ, name="basal_stress", idx=0)
+    chk.save_function(h, name="thickness", idx=0)
+
+    num_steps = int(args.final_time / float(dt))
+    timesteps = np.linspace(0.0, args.final_time, num_steps + 1)
+    progress_bar = tqdm.trange(num_steps)
+    for step in progress_bar:
+        try:
+            mass_solver.advance()
+            h.interpolate(max_value(0, h))
+
+            s.interpolate(max_value(b + h, (1 - ρ_I / ρ_W) * h))
+            momentum_solver.solve()
+        except firedrake.ConvergenceError:
+            chk.h5pyfile.create_dataset("timesteps", data=timesteps[:step])
+            sys.exit()
+
+        min_h = h.dat.data_ro.min()
+        avg_h = firedrake.assemble(h * dx) / area
+        description = f"avg, min h: {avg_h:4.2f}, {min_h:4.2f}"
+        progress_bar.set_description(description)
+
+        u, M, τ = z.subfunctions
+        chk.save_function(u, name="velocity", idx=step + 1)
+        chk.save_function(M, name="membrane_stress", idx=step + 1)
+        chk.save_function(τ, name="basal_stress", idx=step + 1)
+        chk.save_function(h, name="thickness", idx=step + 1)
+
+    chk.h5pyfile.create_dataset("timesteps", data=timesteps)

@@ -1,4 +1,5 @@
 import argparse
+import numpy as np
 import matplotlib.pyplot as plt
 import firedrake
 from firedrake import inner, sqrt
@@ -11,10 +12,11 @@ args = parser.parse_args()
 
 with firedrake.CheckpointFile(args.input, "r") as chk:
     mesh = chk.load_mesh()
-    h = chk.load_function(mesh, "thickness")
-    u = chk.load_function(mesh, "velocity")
-    M = chk.load_function(mesh, "membrane_stress")
-    τ = chk.load_function(mesh, "basal_stress")
+    timesteps = np.array(chk.h5pyfile["timesteps"])
+    h = chk.load_function(mesh, "thickness", idx=len(timesteps) - 1)
+    u = chk.load_function(mesh, "velocity", idx=len(timesteps) - 1)
+    M = chk.load_function(mesh, "membrane_stress", idx=len(timesteps) - 1)
+    τ = chk.load_function(mesh, "basal_stress", idx=len(timesteps) - 1)
 
 fig, axes = plt.subplots(nrows=4, ncols=1, sharex=True, sharey=True)
 

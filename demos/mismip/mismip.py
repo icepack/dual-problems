@@ -21,14 +21,14 @@ from firedrake import (
 )
 import irksome
 from irksome import Dt
-from icepack.constants import (
+from icepack2.constants import (
     ice_density as ρ_I,
     water_density as ρ_W,
     gravity as g,
     glen_flow_law as n,
     weertman_sliding_law as m,
 )
-from dualform import ice_stream
+from icepack2 import model
 
 
 # Get the command-line options.
@@ -103,10 +103,10 @@ bcs = [inflow_bc, side_wall_bc]
 # Set up the solution variables, input data, Lagrangian, and solvers for the
 # momentum conservation equation.
 fns = [
-    ice_stream.viscous_power,
-    ice_stream.friction_power,
-    ice_stream.boundary,
-    ice_stream.constraint,
+    model.viscous_power,
+    model.friction_power,
+    model.calving_terminus,
+    model.momentum_balance,
 ]
 
 z = firedrake.Function(Z)
@@ -121,27 +121,33 @@ h_min = Constant(10.0)
 p_I = ρ_I * g * max_value(h_min, h)
 p_W = -ρ_W * g * min_value(0, s - h)
 f = (1 - p_W / p_I) ** m
-kwargs = {
+fields = {
     "velocity": u,
     "membrane_stress": M,
     "basal_stress": τ,
     "thickness": h,
     "surface": s,
     "floating": f,
-    "viscous_yield_strain": ε_c,
-    "viscous_yield_stress": τ_c,
-    "friction_yield_speed": u_c,
-    "friction_yield_stress": τ_c,
-    "outflow_ids": outflow_ids,
 }
+rheology = {
+    "flow_law_exponent": n,
+    "flow_law_coefficient": ε_c / τ_c ** n,
+    "sliding_exponent": m,
+    "sliding_coefficient": u_c / τ_c ** m,
+}
+linear_rheology = {
+    "flow_law_exponent": 1,
+    "flow_law_coefficient": ε_c / τ_c,
+    "sliding_exponent": 1,
+    "sliding_coefficient": u_c / τ_c,
+}
+boundary_ids = {"outflow_ids": outflow_ids}
 
-linear_exponents = {"flow_law_exponent": 1, "sliding_law_exponent": 1}
-L_1 = sum(fn(**kwargs, **linear_exponents) for fn in fns)
+L_1 = sum(fn(**fields, **linear_rheology, **boundary_ids) for fn in fns)
 F_1 = firedrake.derivative(L_1, z)
 firedrake.solve(F_1 == 0, z, bcs)
 
-exponents = {"flow_law_exponent": n, "sliding_law_exponent": m}
-L = sum(fn(**kwargs, **exponents) for fn in fns)
+L = sum(fn(**fields, **rheology, **boundary_ids) for fn in fns)
 F = firedrake.derivative(L, z)
 
 J_1 = firedrake.derivative(F_1, z)
@@ -179,7 +185,14 @@ G = G_cells + G_facets + G_inflow + G_outflow
 tableau = irksome.BackwardEuler()
 dt = Constant(args.timestep)
 t = Constant(0.0)
-mass_solver = irksome.TimeStepper(G, tableau, t, dt, h)
+params = {
+    "solver_parameters": {
+        "snes_type": "ksponly",
+        "ksp_type": "gmres",
+        "pc_type": "bjacobi",
+    },
+}
+mass_solver = irksome.TimeStepper(G, tableau, t, dt, h, **params)
 
 # Solve the coupled mass and momentum balance equations for several centuries.
 with firedrake.CheckpointFile(args.output, "w") as chk:

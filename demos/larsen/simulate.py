@@ -7,7 +7,7 @@ import firedrake
 from firedrake import assemble, Constant, inner, grad, dx, ds, dS
 import icepack
 from icepack.constants import glen_flow_law as n
-from dualform import ice_shelf
+from icepack2 import model
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", default="larsen-extrapolated.h5")
@@ -64,12 +64,7 @@ A0 = icepack.rate_factor(T)
 A = A0 * firedrake.exp(θ)
 τ_c = firedrake.interpolate((ε_c / A)**(1 / n), Q)
 
-fns = [
-    ice_shelf.viscous_power,
-    ice_shelf.boundary,
-    ice_shelf.constraint,
-    ice_shelf.constraint_edges,
-]
+fns = [model.viscous_power, model.ice_shelf_momentum_balance]
 
 u, M = firedrake.split(z)
 fields = {
@@ -85,19 +80,22 @@ rfields = {
     "thickness": firedrake.max_value(h_min, h),
 }
 
-params = {
-    "viscous_yield_strain": ε_c,
-    "viscous_yield_stress": τ_c,
-    "outflow_ids": (1, 2),
+rheology = {
+    "flow_law_exponent": n,
+    "flow_law_coefficient": ε_c / τ_c**n,
+}
+linear_rheology = {
+    "flow_law_exponent": 1,
+    "flow_law_coefficient": ε_c / τ_c,
 }
 
-L_1 = sum(fn(**rfields, **params, flow_law_exponent=1) for fn in fns)
+L_1 = sum(fn(**rfields, **linear_rheology) for fn in fns)
 F_1 = firedrake.derivative(L_1, z)
 
-L = sum(fn(**fields, **params, flow_law_exponent=n) for fn in fns)
+L = sum(fn(**fields, **rheology) for fn in fns)
 F = firedrake.derivative(L, z)
 
-L_r = sum(fn(**rfields, **params, flow_law_exponent=n) for fn in fns)
+L_r = sum(fn(**rfields, **rheology) for fn in fns)
 F_r = firedrake.derivative(L_r, z)
 J_r = firedrake.derivative(F_r, z)
 

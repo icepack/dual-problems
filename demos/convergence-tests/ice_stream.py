@@ -3,15 +3,15 @@ import argparse
 import tqdm
 import numpy as np
 import firedrake
-from firedrake import interpolate, as_vector, max_value, Constant
-from icepack.constants import (
+from firedrake import interpolate, as_vector, max_value, Constant, derivative
+from icepack2.constants import (
     ice_density as ρ_I,
     water_density as ρ_W,
     gravity as g,
     glen_flow_law as n,
     weertman_sliding_law as m,
 )
-from dualform import ice_stream
+from icepack2 import model
 
 
 parser = argparse.ArgumentParser()
@@ -54,7 +54,7 @@ def friction(x):
     return α * (ρ_I * g * (h0 - dh * x / Lx)) * exact_u(x) ** (-1 / m)
 
 
-errors = []
+errors, mesh_sizes = [], []
 k_min, k_max, num_steps = args.log_nx_min, args.log_nx_max, args.num_steps
 for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     mesh = firedrake.RectangleMesh(nx, nx, float(Lx), float(Ly), diagonal="crossed")
@@ -65,8 +65,7 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     Q = firedrake.FunctionSpace(mesh, cg)
     V = firedrake.VectorFunctionSpace(mesh, cg)
     Σ = firedrake.TensorFunctionSpace(mesh, dg, symmetry=True)
-    # TODO: investigate using DG for this?
-    T = firedrake.VectorFunctionSpace(mesh, cg)
+    T = firedrake.VectorFunctionSpace(mesh, dg)
     Z = V * Σ * T
     z = firedrake.Function(Z)
     z.sub(0).assign(Constant((u_inflow, 0)))
@@ -81,60 +80,73 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     C = interpolate(friction(x), Q)
     u_c = interpolate((τ_c / C)**m, Q)
 
+    # Create the boundary conditions
     inflow_ids = (1,)
     outflow_ids = (2,)
     side_wall_ids = (3, 4)
-
-    u, M, τ = firedrake.split(z)
-    kwargs = {
-        "velocity": u,
-        "membrane_stress": M,
-        "basal_stress": τ,
-        "thickness": h,
-        "surface": s,
-        "viscous_yield_strain": ε_c,
-        "viscous_yield_stress": τ_c,
-        "friction_yield_speed": u_c,
-        "friction_yield_stress": τ_c,
-        "outflow_ids": outflow_ids,
-    }
 
     inflow_bc = firedrake.DirichletBC(Z.sub(0), Constant((u_inflow, 0)), inflow_ids)
     side_wall_bc = firedrake.DirichletBC(Z.sub(0).sub(1), 0, side_wall_ids)
     bcs = [inflow_bc, side_wall_bc]
 
+    # Get the Lagrangian, material parameters, and input fields
     fns = [
-        ice_stream.viscous_power,
-        ice_stream.friction_power,
-        ice_stream.boundary,
-        ice_stream.constraint,
+        model.viscous_power,
+        model.friction_power,
+        model.calving_terminus,
+        model.momentum_balance,
     ]
 
-    J_l = sum(
-        fn(**kwargs, flow_law_exponent=1, sliding_law_exponent=1) for fn in fns
-    )
-    F_l = firedrake.derivative(J_l, z)
-    firedrake.solve(F_l == 0, z, bcs=bcs)
-
-    qdegree = max(8, args.degree ** n)
-    params = {
-        "form_compiler_parameters": {"quadrature_degree": qdegree}
+    rheology = {
+        "flow_law_exponent": n,
+        "flow_law_coefficient": ε_c / τ_c ** n,
+        "sliding_exponent": m,
+        "sliding_coefficient": u_c / τ_c ** m,
     }
 
-    num_continuation_steps = 4
-    for t in np.linspace(0.0, 1.0, num_continuation_steps):
-        exponents = {
-            "flow_law_exponent": Constant((1 - t) + t * n),
-            "sliding_law_exponent": Constant((1 - t) + t * m),
-        }
-        J = sum(fn(**kwargs, **exponents) for fn in fns)
-        F = firedrake.derivative(J, z)
-        firedrake.solve(F == 0, z, bcs=bcs, **params)
+    u, M, τ = firedrake.split(z)
+    fields = {
+        "velocity": u,
+        "membrane_stress": M,
+        "basal_stress": τ,
+        "thickness": h,
+        "surface": s,
+    }
+
+    boundary_ids = {"outflow_ids": outflow_ids}
+
+    L = sum(fn(**fields, **rheology, **boundary_ids) for fn in fns)
+    F = derivative(L, z)
+
+    # Regularize second derivative of the Lagrangian
+    λ = firedrake.Constant(1e-3)
+    regularized_rheology = {
+        "flow_law_exponent": 1,
+        "flow_law_coefficient": λ * ε_c / τ_c,
+        "sliding_exponent": 1,
+        "sliding_coefficient": λ * u_c / τ_c,
+    }
+
+    K = sum(
+        fn(**fields, **regularized_rheology)
+        for fn in [model.viscous_power, model.friction_power]
+    )
+    J = derivative(derivative(L + K, z), z)
+
+    qdegree = max(8, args.degree ** n)
+    pparams = {"form_compiler_parameters": {"quadrature_degree": qdegree}}
+    problem = firedrake.NonlinearVariationalProblem(F, z, bcs, J=J, **pparams)
+    solver = firedrake.NonlinearVariationalSolver(problem)
+
+    solver.solve()
+    λ.assign(0.0)
+    solver.solve()
 
     u, M, τ = z.subfunctions
     error = firedrake.norm(u - u_exact) / firedrake.norm(u_exact)
     δx = mesh.cell_sizes.dat.data_ro.min()
-    errors.append((δx, error))
+    mesh_sizes.append(δx)
+    errors.append(error)
 
 try:
     with open(args.output, "r") as input_file:
@@ -142,6 +154,6 @@ try:
 except FileNotFoundError:
     results = {}
 
-results.update({f"degree-{args.degree}": errors})
+results.update({f"degree-{args.degree}": list(zip(mesh_sizes, errors))})
 with open(args.output, "w") as output_file:
     json.dump(results, output_file)

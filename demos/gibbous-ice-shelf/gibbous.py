@@ -10,11 +10,13 @@ from firedrake import (
     grad,
     dx,
     ds,
+    derivative,
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
 )
-from icepack.constants import glen_flow_law
-from dualform import ice_shelf
+import irksome
+from icepack2 import model
+from icepack2.constants import glen_flow_law as n
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input")
@@ -86,10 +88,11 @@ u_expr = sum(us)
 
 # Create some function spaces and some fields
 cg = firedrake.FiniteElement("CG", "triangle", 1)
-dg = firedrake.FiniteElement("DG", "triangle", 0)
-Q = firedrake.FunctionSpace(mesh, cg)
+dg0 = firedrake.FiniteElement("DG", "triangle", 0)
+dg1 = firedrake.FiniteElement("DG", "triangle", 1)
+Q = firedrake.FunctionSpace(mesh, dg1)
 V = firedrake.VectorFunctionSpace(mesh, cg)
-Σ = firedrake.TensorFunctionSpace(mesh, dg, symmetry=True)
+Σ = firedrake.TensorFunctionSpace(mesh, dg0, symmetry=True)
 Z = V * Σ
 
 h0 = firedrake.interpolate(h_expr, Q)
@@ -129,8 +132,7 @@ if args.input:
 else:
     z.sub(0).assign(u0)
 
-# Set up the diagnostic problem and compute an initial guess by solving a
-# Picard linearization of the problem
+# Set up the diagnostic problem
 u, M = firedrake.split(z)
 fields = {
     "velocity": u,
@@ -138,31 +140,26 @@ fields = {
     "thickness": h,
 }
 
-h_min = firedrake.Constant(1.0)
-rfields = {
-    "velocity": u,
-    "membrane_stress": M,
-    "thickness": firedrake.max_value(h_min, h),
+fns = [model.viscous_power, model.ice_shelf_momentum_balance]
+
+rheology = {
+    "flow_law_exponent": n,
+    "flow_law_coefficient": ε_c / τ_c ** n,
 }
 
-params = {
-    "viscous_yield_strain": ε_c,
-    "viscous_yield_stress": τ_c,
-    "outflow_ids": (2,),
+L = sum(fn(**fields, **rheology) for fn in fns)
+F = derivative(L, z)
+
+# Make an initial guess by solving a Picard linearization
+linear_rheology = {
+    "flow_law_exponent": 1,
+    "flow_law_coefficient": ε_c / τ_c,
 }
 
-fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
-L_1 = sum(fn(**fields, **params, flow_law_exponent=1) for fn in fns)
-F_1 = firedrake.derivative(L_1, z)
+L_1 = sum(fn(**fields, **linear_rheology) for fn in fns)
+F_1 = derivative(L_1, z)
 
-L = sum(fn(**fields, **params, flow_law_exponent=glen_flow_law) for fn in fns)
-F = firedrake.derivative(L, z)
-
-L_r = sum(fn(**rfields, **params, flow_law_exponent=glen_flow_law) for fn in fns)
-F_r = firedrake.derivative(L_r, z)
-J_r = firedrake.derivative(F_r, z)
-
-qdegree = int(glen_flow_law) + 2
+qdegree = n + 2
 bc = firedrake.DirichletBC(Z.sub(0), u0, (1,))
 problem_params = {
     #"form_compiler_parameters": {"quadrature_degree": qdegree},
@@ -179,7 +176,17 @@ solver_params = {
 }
 firedrake.solve(F_1 == 0, z, **problem_params, **solver_params)
 
-# Create a regularized Lagrangian
+# Create an approximate linearization
+h_min = firedrake.Constant(1.0)
+rfields = {
+    "velocity": u,
+    "membrane_stress": M,
+    "thickness": firedrake.max_value(h_min, h),
+}
+
+L_r = sum(fn(**rfields, **rheology) for fn in fns)
+F_r = derivative(L_r, z)
+J_r = derivative(F_r, z)
 
 # Set up the diagnostic problem and solver
 # TODO: possibly use a regularized Jacobian
@@ -188,16 +195,26 @@ diagnostic_solver = NonlinearVariationalSolver(diagnostic_problem, **solver_para
 diagnostic_solver.solve()
 
 # Set up the prognostic problem and solver
-h_n = h.copy(deepcopy=True)
-φ = firedrake.TestFunction(Q)
+prognostic_problem = model.mass_balance(
+    thickness=h,
+    velocity=u,
+    accumulation=firedrake.Constant(0.0),
+    thickness_inflow=h0,
+    test_function=firedrake.TestFunction(Q),
+)
 dt = firedrake.Constant(args.final_time / args.num_steps)
-flux_cells = ((h - h_n) / dt * φ - inner(h * u, grad(φ))) * dx
-ν = firedrake.FacetNormal(mesh)
-flux_in = h0 * firedrake.min_value(0, inner(u, ν)) * φ * ds
-flux_out = h * firedrake.max_value(0, inner(u, ν)) * φ * ds
-G = flux_cells + flux_in + flux_out
-prognostic_problem = NonlinearVariationalProblem(G, h)
-prognostic_solver = NonlinearVariationalSolver(prognostic_problem)
+t = firedrake.Constant(0.0)
+method = irksome.BackwardEuler()
+prognostic_params = {
+    "solver_parameters": {
+        "snes_type": "ksponly",
+        "ksp_type": "gmres",
+        "pc_type": "bjacobi",
+    },
+}
+prognostic_solver = irksome.TimeStepper(
+    prognostic_problem, method, t, dt, h, **prognostic_params
+)
 
 # Set up a calving mask
 R = firedrake.Constant(60e3)
@@ -214,7 +231,7 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
     chk.save_function(h, name="thickness", idx=0)
 
     for step in tqdm.trange(args.num_steps):
-        prognostic_solver.solve()
+        prognostic_solver.advance()
 
         if args.calving_freq != 0.0:
             if time_since_calving > args.calving_freq:
@@ -223,7 +240,6 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
             time_since_calving += float(dt)
 
         h.interpolate(firedrake.max_value(0, h))
-        h_n.assign(h)
 
         diagnostic_solver.solve()
 

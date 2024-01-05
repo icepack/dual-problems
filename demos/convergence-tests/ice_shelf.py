@@ -3,8 +3,13 @@ import argparse
 import numpy as np
 import firedrake
 from firedrake import Constant
-from icepack.constants import ice_density, water_density, gravity, glen_flow_law
-from dualform import ice_shelf
+from icepack2.constants import (
+    ice_density as ρ_I,
+    water_density as ρ_W,
+    gravity as g,
+    glen_flow_law as n,
+)
+from icepack2 import model
 
 
 parser = argparse.ArgumentParser()
@@ -15,15 +20,9 @@ parser.add_argument("--num-steps", type=int, default=9)
 parser.add_argument("--output", default="results.json")
 args = parser.parse_args()
 
-# Physical constants
-# TODO: Copy the values from icepack
-ρ_I = Constant(ice_density)
-ρ_W = Constant(water_density)
+# Physical constants at about -14C, with an applied stress of 100 kPa, the
+# glacier will experience a strain rate of 10 (m / yr) / km at -14C.
 ρ = ρ_I * (1 - ρ_I / ρ_W)
-g = Constant(gravity)
-
-# At about -14C, with an applied stress of 100 kPa, the glacier will experience
-# a strain rate of 10 (m / yr) / km at -14C.
 τ_c = Constant(0.1)  # MPa
 ε_c = Constant(0.01) # (km / yr) / km
 
@@ -34,7 +33,6 @@ def exact_velocity(x, inflow_velocity, inflow_thickness, thickness_change, lengt
     dh = Constant(thickness_change)
     lx = Constant(length)
 
-    n = Constant(glen_flow_law)
     A = ε_c / τ_c**n
     u_0 = Constant(100.0)
     h_0, dh = Constant(500.0), Constant(100.0)
@@ -79,19 +77,24 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
 
     z = firedrake.Function(Z)
     u, M = firedrake.split(z)
-    kwargs = {
+    fields = {
         "velocity": u,
         "membrane_stress": M,
         "thickness": h,
-        "viscous_yield_strain": ε_c,
-        "viscous_yield_stress": τ_c,
-        "outflow_ids": outflow_ids,
     }
-    fns = [ice_shelf.viscous_power, ice_shelf.boundary, ice_shelf.constraint]
-    J_l = sum(fn(**kwargs, flow_law_exponent=1) for fn in fns)
+    rheology = {
+        "flow_law_exponent": n,
+        "flow_law_coefficient": ε_c / τ_c**n,
+    }
+    linear_rheology = {
+        "flow_law_exponent": 1,
+        "flow_law_coefficient": ε_c / τ_c,
+    }
+    fns = [model.viscous_power, model.ice_shelf_momentum_balance]
+    J_l = sum(fn(**fields, **linear_rheology) for fn in fns)
     F_l = firedrake.derivative(J_l, z)
 
-    J = sum(fn(**kwargs, flow_law_exponent=glen_flow_law) for fn in fns)
+    J = sum(fn(**fields, **rheology) for fn in fns)
     F = firedrake.derivative(J, z)
 
     inflow_bc = firedrake.DirichletBC(Z.sub(0), u_in, inflow_ids)

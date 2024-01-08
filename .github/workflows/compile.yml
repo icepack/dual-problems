@@ -20,6 +20,7 @@ jobs:
           pip install git+https://github.com/icepack/Trilinos.git
           pip install git+https://github.com/icepack/pyrol.git
           pip install git+https://github.com/icepack/icepack.git
+          pip install git+https://github.com/icepack/icepack2.git
       - name: Check out git repository
         uses: actions/checkout@v3
       - name: Install Python package

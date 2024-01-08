@@ -23,8 +23,6 @@ jobs:
           pip install git+https://github.com/icepack/icepack2.git
       - name: Check out git repository
         uses: actions/checkout@v3
-      - name: Install Python package
-        run: pip install --editable demos/dualform
       - name: Compile TeX document
         env:
           EARTHDATA_USERNAME: ${{ secrets.EARTHDATA_USERNAME }}

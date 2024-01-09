@@ -11,11 +11,7 @@ from firedrake import (
     as_vector,
     Constant,
     interpolate,
-    inner,
-    grad,
     dx,
-    ds,
-    dS,
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
 )
@@ -170,18 +166,11 @@ momentum_solver.solve()
 # Set up the solution variables, input data, and solvers for the mass balance
 # equation.
 a = Constant(0.3)
-
 dt = Constant(args.timestep)
 φ = firedrake.TestFunction(Q)
-ν = firedrake.FacetNormal(mesh)
-
-G_cells = (Dt(h) * φ - inner(h * u, grad(φ)) - a * φ) * dx
-f = h * max_value(0, inner(u, ν))
-G_facets = (f("+") - f("-")) * (φ("+") - φ("-")) * dS
-G_inflow = h_0 * min_value(0, inner(u, ν)) * φ * ds
-G_outflow = f * φ * ds
-
-G = G_cells + G_facets + G_inflow + G_outflow
+mass_problem = model.mass_balance(
+    thickness=h, velocity=u, accumulation=a, thickness_inflow=h_0, test_function=φ
+)
 tableau = irksome.BackwardEuler()
 dt = Constant(args.timestep)
 t = Constant(0.0)
@@ -192,7 +181,7 @@ params = {
         "pc_type": "bjacobi",
     },
 }
-mass_solver = irksome.TimeStepper(G, tableau, t, dt, h, **params)
+mass_solver = irksome.TimeStepper(mass_problem, tableau, t, dt, h, **params)
 
 # Solve the coupled mass and momentum balance equations for several centuries.
 with firedrake.CheckpointFile(args.output, "w") as chk:

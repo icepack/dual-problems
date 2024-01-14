@@ -383,7 +383,7 @@ Comparing them to an analytical solution, however, would at least reveal the pre
 
 The verification experiments that we present below are all taken from those used to test the implementation of the primal form of the SSA in the icepack package \citep{shapero2021icepack}.
 The linear ice shelf and ice stream experiments are analytically solvable.
-The gibbous ice shelf and MISMIP+ test cases are not analytically solvable.
+The gibbous ice shelf test case is not analytically solvable.
 Instead, we take it on faith that the solvers in icepack are implemented correctly, and check that the dual form solver we present here reproduces the same results as icepack to within discretization error.
 
 
@@ -525,27 +525,6 @@ As the system relaxes back, the number of iterations decreases again.
 Moreover, we had to do some manual adjustment of the convergence tolerances.
 Several different strategies can alleviate the need for manual adjustment; see Appendix \ref{app:solution}.
 
-\subsection{MISMIP+} \label{sec:mismip}
-
-\begin{figure}[t]
-    \begin{center}
-        \includegraphics[width=0.75\linewidth]{demos/mismip/mismip.pdf}
-    \end{center}
-    \caption{The thickness, velocity, membrane stress magnitude, and basal stress for the steady state of the MISMIP+ test case.}
-    \label{fig:mismip}
-\end{figure}
-
-Here we perform a spin-up to steady state of the MISMIP+ test case \citep{asay2016experimental}.
-We used the Weertman sliding law, i.e. $m = 3$, instead of the modifications that assume a plastic rheology at higher sliding speeds.
-With the primal solver in icepack, we were unable to use the Weertman sliding law for the entire duration of the simulation because the ice thicknesses were so small as to crash the momentum balance solver.
-The dual form does have its own drawbacks.
-For example, in the early rapid adjustment stages, we were limited to taking timesteps on the order of 2.5 years.
-Longer timesteps, which are desirable for computational efficiency, could then make the momentum balance solver crash with the options we used.
-We could in principle remedy this issue with different solver options or more continuation steps.
-
-In summary, it appears as if solvers for the dual form can still converge even when given values of the input data that would make solvers for the primal form crash.
-Achieving this convergence may require more coaxing in the form of shorter timesteps, more regularized Jacobians, or more numerical continuation steps.
-We regard this tradeoff as a net positive if primal solvers cannot be made to converge even with substantial encouragement.
 
 \subsection{Larsen C Ice Shelf}
 

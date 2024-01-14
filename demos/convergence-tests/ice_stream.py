@@ -147,6 +147,7 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     δx = mesh.cell_sizes.dat.data_ro.min()
     mesh_sizes.append(δx)
     errors.append(error)
+    print(".", end="", flush=True)
 
 try:
     with open(args.output, "r") as input_file:

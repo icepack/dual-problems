@@ -94,8 +94,10 @@ For background reading, we refer the reader to \citet{greve2009dynamics} for gla
 
 
 
-% ---------------------------
-\section{Equations of motion}
+% --------------
+\section{Theory}
+
+\subsection{The shallow stream equations}
 
 Here we review the differential equations that are commonly used to describe glacier flow.
 In section \S\ref{sec:primal-action-principles}, we will show how the momentum balance equation has a minimization principle.
@@ -156,8 +158,8 @@ For illustrative purposes equation \eqref{eq:sliding-law} is sufficient, and we 
 
 Finally, the thickness evolves in time according to the following depth-averaged mass conservation equation:
 \begin{equation}
-	\frac{\partial h}{\partial t} + \nabla \cdot hu = \dot a - \dot m,
-	\label{eq:conservation-mass}
+    \frac{\partial h}{\partial t} + \nabla \cdot hu = \dot a - \dot m,
+    \label{eq:conservation-mass}
 \end{equation}
 where $\dot a$ is the rate of ice accumulation and $\dot m$ of melting or ablation.
 
@@ -189,18 +191,17 @@ This is a Neumann boundary condition:
 \end{equation}
 where $h_W$ is the water depth and $\nu$ is the unit outward-pointing normal vector to the terminus.
 
-We can then combine equations \eqref{eq:membrane-stress-conservation}, \eqref{eq:strain-rate}, \eqref{eq:constitutive-relation}, and \eqref{eq:sliding-law} to arrive at a second-order, nonlinear system of partial differential equations for $u$.
-
+We can then combine equations \eqref{eq:membrane-stress-conservation}-\eqref{eq:sliding-law} to arrive at a second-order, nonlinear system of differential equations for $u$.
 
 
 % --------------------------------
-\section{Primal action principles}
+\subsection{Primal action principles}
 \label{sec:primal-action-principles}
 
 The main idea behind \emph{action} or \emph{minimization} principles is that some partial differential equations really express the fact that their solutions are extrema of a given \emph{action functional}.
 The momentum balance equation of glacier flow is one such PDE.
 Many publications in the glacier flow modeling literature have explored the advantages of using action principles to describe the momentum balance \citep{bassis2010hamilton, dukowicz2010consistent, brinkerhoff2013data, shapero2021icepack}.
-Here we briefly review these concepts as they pertain to the SSA momentum balance model \eqref{eq:membrane-stress-conservation}.
+Here we briefly review these concepts as they pertain to the SSA momentum balance.
 
 Given a particular action functional, the PDE that expresses the condition that a field is an extremum can be calculated mechanically in terms of the integrand.
 This PDE is called the \emph{Euler-Lagrange} equation for the functional.
@@ -229,115 +230,79 @@ Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative},
 Note that the action has units of energy per unit time, or power.
 A mechanical computation of the second derivative of $J$ shows that this functional is convex.
 The theory of non-equilibrium thermodynamics tells us that $J$ represents the rate of dissipation of thermodynamic free energy \citep{edelen1972nonlinear}.
-
+Once again, the essential point is that finding a minimizer $u$ of the functional $J$ defined above is equivalent to finding a solution of the SSA differential equation.
 
 
 % ------------------------------
-\section{Dual action principles}
+\subsection{Dual action principles}
+\label{subsec:dual-action-principles}
 
-Action principles have appeared in the glaciology literature before but their dual forms have not.
-To introduce and motivate the idea behind dual forms, we will first focus on a simpler problem: groundwater flow in a confined aquifer.
-The primal form of groundwater flow is a linear differential equation for a scalar field, whereas the momentum balance equation for glacier flow is a nonlinear differential equation for a vector field.
-Nonetheless, deriving the dual form of the action functional follows the same essential process in both cases.
+Action principles have appeared in glaciology before, but dual forms have not.
+The dual form of a problem is a distinct but equivalent expression of the same underlying physics.
+We will show in the following that, for the particular case of the SSA momentum balance, the dual form has some better numerical properties that make it worth investigating.
 
-\subsection{Groundwater flow}
+The dual form can be understood at two levels.
+First, we can show what the dual action functional is without describing how we came up with it.
+A reader who knows some variational calculus can derive the Euler-Lagrange equations for this functional and verify that the resulting equation set is equivalent to the primal form of the SSA.
+We present an exposition at this level below.
+On the other hand, this approach can feel like pulling a rabbit out of a hat; it does not answer how we arrived at the dual form in the first place or how we might derive the dual forms of other problems.
+This level requires some knowledge of general convex duality theory.
+We assume that few glaciologists will be interested in this level of detail and refer instead to sections 9.7 and 9.8 of \citet{attouch2014variational}.
 
-The unknowns in groundwater flow are the fluid velocity $u$ and the pressure head $\phi$.
-First, the total mass of water is conserved:
-\begin{equation}
-    \nabla\cdot u = f.
-    \label{eq:groundwater-conservation-law}
-\end{equation}
-where $f$ consists of all sources and sinks.
-Next, we need a constitutive law relating the velocity and hydraulic head.
-In this case, the rule is Darcy's law
-\begin{equation}
-    u = -k\nabla\phi
-    \label{eq:darcy-law}
-\end{equation}
-where $k$ is the hydraulic conductivity.
-(Note that the conductivity could be a scalar or a rank-2 tensor.)
-Substituting Darcy's law into the conservation law eliminates $u$ from the problem, leaving us with a second-order PDE for the pressure head $\phi$.
-Finally, the boundary conditions for the problem consist of either a fixed hydraulic head $\phi$ or a fixed flux $u$.
-We can then show using the usual methods of variational calculus that this PDE is the optimality condition for minimizing the functional
-\begin{equation}
-    J(\phi) = \int_\Omega\left(\frac{1}{2}k\nabla\phi\cdot\nabla\phi - f\phi\right)dx.
-    \label{eq:groundwater-primal-action}
-\end{equation}
-Minimizing $J$ is the \emph{primal} form of the problem.
+Equations \eqref{eq:membrane-stress-conservation}-\eqref{eq:sliding-law} and \eqref{eq:terminus-bc} can be combined into a second-order differential equation for the velocity $u$.
+Solving this differential equation is equivalent to finding a minimizer of the functional $J$ defined in equation \eqref{eq:ssa-primal-action}.
+In deriving the differential equation, we used the constitutive relation and the sliding law (equations \eqref{eq:constitutive-relation} and \eqref{eq:sliding-law}) to eliminate the membrane stress $M$ and basal stress $\tau$.
+We could instead \textbf{keep these additional equations and unknowns.}
+Instead of solving a second-order equation for $u$, we would then have an equivalent first-order system of equations for $u$, $M$, and $\tau$.
+One way to motivate the dual problem is to ask: \textbf{is there an optimization problem that is equivalent to this first-order system?}
+As we will show below, there is, but it has some different characteristics from the primal problem.
+One of the key features of dual forms in general is that they invert constitutive relations.
+Conventionally, we write the membrane stress tensor as a function of the strain rate tensor, and the basal shear stress as a function of the sliding velocity.
+The dual form inverts these relations: the strain rate tensor becomes a function of the membrane stress tensor, and the sliding velocity a function of the basal shear stress.
 
-In the description above, we eliminated the velocity $u$.
-For some problems, like simulating contaminant dispersal, the entire point of the exercise is to compute the velocity; the hydraulic head is only of secondary importance.
-We could always calculate the pressure head by finding a minimizer of the functional in equation \eqref{eq:groundwater-primal-action}, and then calculate the velocity afterwards using Darcy's law.
-What if we instead wanted to solve simultaneously for both the velocity and hydraulic head?
-Is there some functional $L$ of both fields such that setting the derivative of $L$ to zero yields the pair of equations \eqref{eq:groundwater-conservation-law} and \eqref{eq:darcy-law}?
-
-This idea forms the basis of \emph{dual} or \emph{mixed} formulations of the problem.
-The desired functional $L$ is
-\begin{equation}
-    L(u, \phi) = \int_\Omega\left(\frac{1}{2}k^{-1}u\cdot u + u\cdot\nabla \phi + f\phi\right)dx.
-\end{equation}
-Again, a routine calculation shows that the optimality conditions for $u$, $\phi$ to be a critical point of $L$ are identical to the variational form of equations \eqref{eq:groundwater-conservation-law}, \eqref{eq:darcy-law}.
-In the dual problem, the hydraulic head $\phi$ plays the role of a Lagrange multiplier to enforce the conservation law $\nabla\cdot u = f$.
-The most important thing about the dual action for our purposes is that \textbf{the constitutive relation is inverted}.
-Where the form of the Darcy law that we started with was $u = -k\nabla\phi$, taking the derivative of $L$ with respect to $u$ and setting it equal to zero gives
-\begin{equation}
-    \nabla\phi = -k^{-1}u.
-\end{equation}
-The two forms are mathematically equivalent, so at this juncture the distinction might not seem significant.
-Indeed, for linear problems one form is as good as the other.
-For nonlinear constitutive relations, however, the consequences are more drastic.
-
-\subsection{Shallow stream approximation}
-
-The procedure to derive the dual of the action functional for groundwater flow was:
-\begin{enumerate}
-    \item We started with a conservation law and a constitutive relation between the field to be solved for and a flux.
-    \item We eliminated the flux to arrive at a second-order differential equation for one field alone.
-    \item We showed that the solution of this differential equation is the minimizer of a certain action functional.
-    \item We showed that there is an equivalent, dual action functional for both the field and flux.
-\end{enumerate}
-For the more complicated case of ice dynamics, we are already up to step 3 -- we have a primal action principle for the ice velocity.
-The preceding section suggests that we might be able to derive a dual action, and that this dual action could have different properties from the primal action.
-
-First, we expect by analogy with the groundwater problem that the constitutive relation will be inverted in the dual form.
-In other words, in the primal form, we defined the membrane stress tensor as a function of the strain rate tensor, but in the dual form we expect to instead determine the strain rate tensor as a function of the stress tensor.
-As a notational convenience, we will want an expression for the inverse of the tensor $\mathscr{C}$ defined in equation \eqref{eq:elasticity-tensor}.
-We can show explicitly that the rank-4 tensor $\mathscr{A}$ defined by
+In equation \eqref{eq:elasticity-tensor}, we defined the rank-4 tensor $\mathscr{C}$ as a convenience for writing down how the membrane stress is a function of the strain rate.
+We can show explicitly that the inverse $\mathscr{A}$ of this tensor $\mathscr{C}$ is:
 \begin{equation}
     \mathscr{A}M = \frac{M - \frac{1}{d + 1}\text{tr}(M)I}{2}
 \end{equation}
-where $d = 2$ is the space dimension is the inverse of $\mathscr{C}$.
-The tensor $\mathscr{A}$ plays an analogous role to the compliance tensor in the Hellinger-Reissner form of linear elasticity.
-With this definition in hand, we can invert equation \eqref{eq:constitutive-relation} to get
-\begin{equation}
-    \dot\varepsilon = 2A|M|_{\mathscr{A}}^{n - 1}\mathscr{A}M.
-\end{equation}
-We can once again compute explicitly the anti-derivative of this expression, just like equation \eqref{eq:M-anti-derivative}:
-\begin{equation}
-    \dot\varepsilon = \frac{d}{dM}\left(\frac{2}{n + 1}A|M|_{\mathscr A}^{n + 1}\right)
-\end{equation}
-Assuming power-law sliding, we can likewise invert the relations between the sliding velocity and the basal shear stress:
-\begin{equation}
-    u = -K|\tau|^{m - 1}\tau = -\frac{d}{d\tau}\left(\frac{1}{m + 1}K|\tau|^{m + 1}\right).
-\end{equation}
+where $d = 2$ is the space dimension.
+The tensor $\mathscr{A}$ plays an analogous role to the compliance tensor in linear elasticity.
+With this definition in hand, we can invert equation \eqref{eq:constitutive-relation} to get $\dot\varepsilon = 2A|M|_{\mathscr{A}}^{n - 1}\mathscr{A}M$.
+The sliding law is much easier to invert: $u = -C^{-m}|\tau|^{m - 1}\tau$.
+We can then define a slipperiness coefficient $K = C^{-m}$.
 
-We now have all the pieces in place to write down the dual form of the shallow stream equations.
-This reformulation adds the membrane stress tensor and basal shear stress as unknowns in the problem.
-The dual form is:
+With these preparations in place, the dual form is:
 \begin{align}
     L(u, M, \tau) = & \int_\Omega\Bigg\{\frac{2}{n + 1}hA|M|_{\mathscr A}^{n + 1} + \frac{1}{m + 1}K|\tau|^{m + 1} \nonumber\\
     & \qquad\qquad - hM:\dot\varepsilon(u) + \tau\cdot u - \rho_Igh\nabla s\cdot u\Bigg\}dx \nonumber \\
     & \qquad - \frac{1}{2}\int_\Gamma\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\;d\gamma
     \label{eq:ssa-dual-form}
 \end{align}
-Again, it is a routine application of variational calculus techniques to show that the optimality conditions for $u$, $M$, $\tau$ to be a critical point of $L$ are identical to equations \eqref{eq:membrane-stress-conservation}, \eqref{eq:constitutive-relation}, \eqref{eq:sliding-law}, \eqref{eq:terminus-bc}.
-
-The important feature of the dual formulation is that \textbf{the nature of the nonlinearity has changed}.
-In the primal action shown in equation \eqref{eq:ssa-primal-action}, the nonlinearity consists of the strain rate raised to the power $\frac{1}{n} + 1$.
-Since $n > 1$, the nonlinearity in the primal form has an infinite singularity in its second derivative around any velocity field with zero strain rate.
-In the dual form, however, the nonlinearity consists of the stress tensor raised to the power $n + 1$.
-Around zero stress, the second derivative of the action with respect to the stress is zero instead of infinity; see figure \ref{fig:primal-vs-dual}.
+We can then evaluate the variational derivatives of $L$ with respect to $u$, $M$, and $\tau$, require that these derivatives are all zero, and show that the resulting equations are equivalent to the primal form of the problem.
+First, if we require that the variational derivative of $L$ with respect to $M$ along any perturbation $N$ is zero, we find that
+\begin{equation}
+    \left\langle\frac{\partial L}{\partial M}, N\right\rangle = \int_\Omega\left\{2hA|M|_{\mathscr{A}}^{n - 1}\mathscr{A}M - h\dot\varepsilon(u)\right\} : N\; dx = 0.
+\end{equation}
+This equation is the variational form of the inverse of the constitutive relation (equation \eqref{eq:constitutive-relation}).
+Next, taking the variational derivative of $L$ with respect $\tau$ along some perturbation $\sigma$, we get
+\begin{equation}
+    \left\langle\frac{\partial L}{\partial\tau}, \sigma\right\rangle = \int_\Omega\left\{K|\tau|^{m - 1}\tau + u\right\}\cdot\sigma\;dx = 0
+\end{equation}
+which is the inverse of the sliding law of equation \eqref{eq:sliding-law}.
+Finally, let $v$ be any perturbation to the velocity field such that $v = 0$ along the inflow boundary.
+Taking the variational derivative of $L$ with respect to $u$ along $v$ gives
+\begin{align}
+    \left\langle\frac{\partial L}{\partial u}, v\right\rangle & = \int_\Omega\left\{-hM : \dot\varepsilon(v) + \tau\cdot v - \rho_Igh\nabla s\cdot v\right\}dx \nonumber\\
+    & \qquad -\frac{1}{2}\int_{\Gamma}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)v\cdot\nu\;d\gamma
+\end{align}
+which is not exactly what we want.
+We can use integration by parts to push the symmetric gradient of $v$ over onto $h\,M$ in the first term however:
+\begin{align}
+    \ldots & = \int_\Omega\left\{\nabla\cdot hM + \tau - \rho_Igh\nabla s\right\}\cdot v\;dx \\
+    & \qquad + \int_\Gamma\left(hM\cdot\nu - \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu\right)\cdot v\;dx.
+\end{align}
+If we require that this is equal to 0 for all perturbation fields $v$, we recover both conservation of membrane stress (equation \eqref{eq:membrane-stress-conservation}) and the boundary condition (equation \eqref{eq:terminus-bc}).
+In effect, finding a critical point of the dual action functional is a constrained optimization problem; the velocity field acts like a Lagrange multiplier that enforces the constraint of stress conservation.
 
 \begin{figure}[t]
     \includegraphics[width=0.48\linewidth]{demos/singularity/primal.pdf}\includegraphics[width=0.48\linewidth]{demos/singularity/dual.pdf}
@@ -346,13 +311,11 @@ Around zero stress, the second derivative of the action with respect to the stre
     \label{fig:primal-vs-dual}
 \end{figure}
 
-The dual form does come with some costs compared to the primal form.
-The primal form is an unconstrained convex problem for the velocity $u$.
-We have already mentioned that the dual form has more unknowns, including both the membrane stress tensor and the basal shear stress vector.
-The dual form now has the stress divergence condition (equation \eqref{eq:membrane-stress-conservation}) as a linear constraint.
-The velocity acts like a Lagrange multiplier to enforce this constraint.
-Optimization with constraints is substantially more challenging than without.
-We argue in the following that these costs are worth paying.
+The important feature of the dual formulation is that \textbf{the nature of the nonlinearity has changed}.
+In the primal action shown in equation \eqref{eq:ssa-primal-action}, the nonlinearity consists of the strain rate raised to the power $\frac{1}{n} + 1$.
+Since $n > 1$, the nonlinearity in the primal form has an infinite singularity in its second derivative around any velocity field with zero strain rate.
+In the dual form, however, the nonlinearity consists of the stress tensor raised to the power $n + 1$.
+Around zero stress, the second derivative of the action with respect to the stress is zero instead of infinity; see figure \ref{fig:primal-vs-dual}.
 
 
 
@@ -427,21 +390,21 @@ Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution
 
 \begin{figure}[t]
 \centering
-	\includegraphics[width = 0.8\linewidth]{demos/slab/figures/marine_ice_sheet.pdf}
-	\caption{Setup for modelling a slab of ice on an inclined bed flowing into the ocean. At $x = 0$ we enforce a thickness $h = 500\,\mathrm{m}$ in order to approach a parallel slab of ice far upstream of the grounding line. The dotted line represents the sea level.}
-	\label{fig:domain_parallel_slab}
+    \includegraphics[width = 0.8\linewidth]{demos/slab/figures/marine_ice_sheet.pdf}
+    \caption{Setup for modelling a slab of ice on an inclined bed flowing into the ocean. At $x = 0$ we enforce a thickness $h = 500\,\mathrm{m}$ in order to approach a parallel slab of ice far upstream of the grounding line. The dotted line represents the sea level.}
+    \label{fig:domain_parallel_slab}
 \end{figure}
 
 As a more challenging test in a flowline setting, we consider a slab of ice of constant thickness flowing down an inclined slope into the ocean, where it goes afloat at the grounding line, as illustrated in Figure \ref{fig:domain_parallel_slab}. We compute steady states under this configuration using the primal and dual methods described above. We set the ice thickness at $x = 0$ to $h = 500\, \mathrm{m}$ and the bedrock angle to $\alpha = 1^\circ$. The bed is given by the expression
 %
 \begin{align}
-	b(x) = 1500 - x\tan{\alpha},
+    b(x) = 1500 - x\tan{\alpha},
 \end{align}
 %
 with units in meters. For the material parameters, we set $n = 3$, $A = 10^{-24}\,\mathrm{Pa}^{-3}\,\mathrm{s}^{-1}$, $C = 10^{-6}\,\mathrm{Pa}\,\mathrm{m}^{-1/3}\mathrm{s}^{1/3}$. Instead of setting inflow boundary conditions at $x = 0$, we enforce a zero extensional stress condition $M = 0$.  This condition allows the ice sheet to tend to the uniform thickness slab solution far upstream of the grounding line. For the uniform slab, the extensional stresses are equal to zero and the frictional stresses at the base of the ice sheet balance the gravitational forces. As a result, the horizontal velocity for the uniform thickness slab is given by
 %
 \begin{align}\label{eq:u_slab}
-	u = \left(\frac{\rho_I g h \tan(\alpha)}{C}\right)^n.
+    u = \left(\frac{\rho_I g h \tan(\alpha)}{C}\right)^n.
 \end{align}
 %
 A consequence of enforcing the slab solution at the left boundary is that, as we move upstream away from the grounding line, the strain rate tends to zero and one must regularise the primal formulation of the momentum balance equation.
@@ -464,10 +427,10 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
 \end{table}
 
 \begin{figure}[t]
-	\centering
-	\includegraphics[width=\linewidth]{demos/slab/figures/newton_its_alpha1.00.pdf}
-	\caption{Results for the slab of ice flowing into the ocean. Norm of the relative Newton residual for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation.}
-	\label{fig:newton-its}
+    \centering
+    \includegraphics[width=\linewidth]{demos/slab/figures/newton_its_alpha1.00.pdf}
+    \caption{Results for the slab of ice flowing into the ocean. Norm of the relative Newton residual for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation.}
+    \label{fig:newton-its}
 \end{figure}
 
 \subsection{Gibbous ice shelf} \label{sec:gibbous-ice-shelf}

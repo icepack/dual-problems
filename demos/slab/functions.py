@@ -9,7 +9,7 @@ import ast
 params_nl = {
          "snes_monitor": None,
         #  "snes_linesearch_type": "l2",
-         "snes_max_it": 100,
+         "snes_max_it": 200,
          "snes_rtol": 1.0e-8,
          "snes_atol": 0,
          "snes_stol": 0,

@@ -76,7 +76,7 @@ axes.get_xaxis().set_visible(False)
 axes.set_ylabel("northing (meters)")
 axes.ticklabel_format(style="sci", axis="both", scilimits=(0, 0))
 index = (timesteps_3 <= args.calving_freq).argmin() + 1
-colors = firedrake.tripcolor(hs_3[index], axes=axes)
+colors = firedrake.tripcolor(hs_3[index], vmin=0.0, axes=axes)
 fig.colorbar(colors, label="meters", orientation="horizontal", pad=0.04)
 fig.savefig("calved-thickness.pdf", bbox_inches="tight")
 

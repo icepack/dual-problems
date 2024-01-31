@@ -142,12 +142,26 @@ u_problem = firedrake.NonlinearVariationalProblem(F, z, J=J, **problem_params)
 u_solver = firedrake.NonlinearVariationalSolver(u_problem, **solver_params)
 u_solver.solve()
 
+# Fix the accumulation rate. We used estimates of surface mass balance from the
+# regional climate model MAR and remote sensing measurements of surface
+# elevation to estimate a linear relationship:
+#
+#     SMB ~= da_ds * s + a_0
+#
+# where `da_ds` ~= 2.25 milimeters of water equivalent per year per meter
+# elevation gain and `a_0` ~= -3.3 meters of water equivalent per year at sea
+# level. We used all the data from 2006-2017 and the fit had `r² = 0.91`.
+# See also https://www.climato.uliege.be/cms/c_5652668/fr/climato-greenland.
+da_ds = Constant(2.25 * 1e-3)
+a_0 = Constant(-3.3)
+a = 0.917 * (a_0 + da_ds * s)
+
 # Set up the mass balance equation
 h_n = h.copy(deepcopy=True)
 h0 = h.copy(deepcopy=True)
 φ = firedrake.TestFunction(h.function_space())
 dt = Constant(1.0 / args.timesteps_per_year)
-flux_cells = ((h - h_n) / dt * φ - inner(h * u, grad(φ))) * dx
+flux_cells = ((h - h_n) / dt * φ - inner(h * u, grad(φ)) - a * φ) * dx
 ν = firedrake.FacetNormal(mesh)
 f = h * max_value(0, inner(u, ν))
 flux_facets = (f("+") - f("-")) * (φ("+") - φ("-")) * dS

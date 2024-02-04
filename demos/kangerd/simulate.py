@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import tqdm
 import numpy as np
+from numpy import pi as π
 import xarray
 import firedrake
 from firedrake import assemble, Constant, exp, max_value, inner, grad, dx, ds, dS
@@ -19,6 +20,7 @@ parser.add_argument("--input", default="kangerdlugssuaq-extrapolated.h5")
 parser.add_argument("--timesteps-per-year", type=int, default=96)
 parser.add_argument("--final-time", type=float, default=0.5)
 parser.add_argument("--degree", type=int, default=1)
+parser.add_argument("--calving", action="store_true")
 parser.add_argument("--output", default="kangerdlugssuaq-simulation.h5")
 args = parser.parse_args()
 
@@ -154,7 +156,33 @@ u_solver.solve()
 # See also https://www.climato.uliege.be/cms/c_5652668/fr/climato-greenland.
 da_ds = Constant(2.25 * 1e-3)
 a_0 = Constant(-3.3)
-a = 0.917 * (a_0 + da_ds * s)
+smb = 0.917 * (a_0 + da_ds * s)
+
+# Create a solver for a smooth ice mask field
+if args.calving:
+    α = Constant(5e2)
+    μ = firedrake.Function(Q)
+    χ = firedrake.conditional(h > 0, 1, 0)
+    J = 0.5 * ((μ - χ)**2 + α**2 * inner(grad(μ), grad(μ))) * dx
+    bcs = [
+        firedrake.DirichletBC(Q, Constant(1.0), (1,)),
+        firedrake.DirichletBC(Q, Constant(0.0), (3,)),
+    ]
+    F = firedrake.derivative(J, μ)
+    μ_problem = firedrake.NonlinearVariationalProblem(F, μ, bcs)
+    μ_solver = firedrake.NonlinearVariationalSolver(μ_problem)
+    μ_solver.solve()
+
+# Create the accumulation/ablation function, which is a sum of SMB and calving
+# losses (if any)
+t = Constant(0.0)
+if args.calving:
+    m = Constant(5e3)  # melt rate in m/yr
+    φ = firedrake.min_value(0, firedrake.cos(2 * π * t))
+    calving = m * (1 - μ) * φ
+    a = smb + calving
+else:
+    a = smb
 
 # Set up the mass balance equation
 h_n = h.copy(deepcopy=True)
@@ -183,6 +211,10 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
 
     timesteps = np.linspace(0.0, args.final_time, num_steps)
     for step in tqdm.trange(num_steps):
+        t.assign(t + dt)
+        if args.calving:
+            μ_solver.solve()
+
         h_solver.solve()
         h.interpolate(firedrake.conditional(h < h_c, 0, h))
         h_n.assign(h)

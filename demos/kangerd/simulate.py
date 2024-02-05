@@ -21,6 +21,10 @@ parser.add_argument("--timesteps-per-year", type=int, default=96)
 parser.add_argument("--final-time", type=float, default=0.5)
 parser.add_argument("--degree", type=int, default=1)
 parser.add_argument("--calving", action="store_true")
+parser.add_argument("--melt-rate", type=float, default=3e3)
+parser.add_argument("--mask-smoothing-length", type=float, default=5e3)
+parser.add_argument("--snes-max-it", type=int, default=200)
+parser.add_argument("--snes-rtol", type=float, default=1e-5)
 parser.add_argument("--output", default="kangerdlugssuaq-simulation.h5")
 args = parser.parse_args()
 
@@ -129,9 +133,9 @@ solver_params = {
         #"snes_monitor": None,
         #"snes_converged_reason": None,
         "snes_stol": 0.0,
-        "snes_rtol": 1e-6,
+        "snes_rtol": args.snes_rtol,
+        "snes_max_it": args.snes_max_it,
         "snes_divergence_tolerance": -1,
-        "snes_max_it": 200,
         "snes_type": "newtonls",
         "ksp_type": "gmres",
         "pc_type": "lu",
@@ -160,7 +164,7 @@ smb = 0.917 * (a_0 + da_ds * s)
 
 # Create a solver for a smooth ice mask field
 if args.calving:
-    α = Constant(5e2)
+    α = Constant(args.mask_smoothing_length)
     μ = firedrake.Function(Q)
     χ = firedrake.conditional(h > 0, 1, 0)
     J = 0.5 * ((μ - χ)**2 + α**2 * inner(grad(μ), grad(μ))) * dx
@@ -177,7 +181,7 @@ if args.calving:
 # losses (if any)
 t = Constant(0.0)
 if args.calving:
-    m = Constant(5e3)  # melt rate in m/yr
+    m = Constant(args.melt_rate)  # melt rate in m/yr
     φ = firedrake.min_value(0, firedrake.cos(2 * π * t))
     calving = m * (1 - μ) * φ
     a = smb + calving
@@ -208,6 +212,8 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
     chk.save_function(u, name="velocity", idx=0)
     chk.save_function(M, name="membrane_stress", idx=0)
     chk.save_function(τ, name="basal_stress", idx=0)
+    if args.calving:
+        chk.save_function(μ, name="ice_mask", idx=0)
 
     timesteps = np.linspace(0.0, args.final_time, num_steps)
     for step in tqdm.trange(num_steps):
@@ -227,6 +233,8 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
         chk.save_function(u, name="velocity", idx=step + 1)
         chk.save_function(M, name="membrane_stress", idx=step + 1)
         chk.save_function(τ, name="basal_stress", idx=step + 1)
+        if args.calving:
+            chk.save_function(μ, name="ice_mask", idx=step + 1)
 
     chk.save_function(q, name="log_friction")
     chk.h5pyfile.attrs["mean_stress"] = τ_c

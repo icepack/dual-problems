@@ -525,6 +525,62 @@ This finding is to be expected because continuous elements usually fare poorly a
 To solve the dual momentum balance equation, we used a linearly implicit scheme (see Appendix \ref{subsec:linearly-implicit-schemes}) with a hand-tuned choice of 10 Newton steps per iteration.
 This approach does not exactly solve the discretized dual momentum balance equation with finite timesteps but the approximation error converges to zero in the limit as the stepsize is reduced.
 
+
+\subsection{Kangerdlugssuaq Glacier}
+
+As our final test case, we studied Kangerdlugssuaq Glacier, a grounded outlet glacier on the east coast of Greenland.
+Kangerdlugssuaq is one of the top three contributors to the total discharge from Greenland \citep{enderlin2014improved, mouginot2019forty}.
+The purpose of this exercise is to demonstrate that we can simulate the evolution of a marine-terminating glacier, including the seasonal advance and retreat of the terminus in response to ocean-induced frontal ablation in summer, using the dual form of the momentum balance equation.
+We do not aim to reproduce the exact calving history.
+
+The simulation of Kangerdlugssuaq proceeds in several steps, similar to our approach for Larsen C:
+\begin{enumerate}
+    \item We first estimate the friction field (the coefficient $K$ in the sliding law $u|_{z = b} = -K|\tau_b|^{n - 1}\tau$) from remote sensing measurements of the ice thickness, surface elevation, and velocity.
+        This step uses the primal form of the momentum balance equation from icepack.
+    \item We extrapolated the thickness, surface elevation, velocity, and friction coefficient onto a large spatial domain that extends further down Kangerdlugssuaq Fjord.
+    \item We ran the simulation using the mass and dual momentum balance equations for one year in order to propagate out any initial transients.
+        This stage uses only surface mass balance and thus permits the glacier to advance down the fjord.
+    \item We then turned on a time-periodic ablation field near the terminus in order to represent the effects of summer melt and calving and ran the simulation for a further four years.
+        This ablation field forces the terminus to advance and retreat.
+\end{enumerate}
+For the initialization, we used version 3 of the BedMachine Greenland data set for ice thickness and surface elevation \citep{morlighem2017bedmachine} and the MEaSUREs annual velocity mosaic from 2015-2016 \citep{joughin2010greenland} to infer the basal friction.
+To force the mass conservation equation \eqref{eq:conservation-mass}, we need to provide a surface mass balance (SMB) field $\dot a$ and a melt rate $\dot m$.
+We used a surface mass balance field that varies linearly with elevation:
+\begin{equation}
+    \dot a \approx a_0 + \frac{\delta a}{\delta s}\cdot s
+\end{equation}
+where $a_0$ is the SMB at sea level and $\delta a/\delta s$ is the SMB lapse rate.
+To fit the parameters $a_0$ and $\delta a/\delta s$, we used output from 2006-2021 of version 3.12 of the Mod\`ele Atmosph\'erique R\'egional (MAR) \citep{fettweis2020grsmbmip}.
+This regional climate model has been tested extensively for the polar regions and for Greenland.
+The fit had $r^2 = 0.91$, so a substantial fraction of the variance is explainable by surface elevation alone.
+
+To set the melt rate $\dot m$, we first created a smoothed ice mask $\mu$.
+The smoothed mask is required to be equal to 1 on the inflow boundary, 0 on the outflow boundary, and have 0 normal derivative along the side walls.
+We then compute $\mu$ as the minimizer of
+\begin{equation}
+    J(\mu) = \frac{1}{2}\int_\Omega\left((\mu - \mathbf{1}_{\{h > 0\}})^2 + \alpha^2|\nabla\mu|^2\right)dx
+\end{equation}
+where $\alpha$ is some smoothing length, and $\mathbf{1}_{\{h > 0\}}(x)$ is equal to 1 if $h(x) > 0$ and 0 if $h(x) = 0$.
+Here we choose $\alpha$ to be 1km, so the mask field rapidly approaches 1 within roughly one ice thickness of the terminus.
+The mask field $\mu$ is recalculated in every timestep.
+Finally, we set the melt rate at time $t$ as
+\begin{equation}
+    \dot m = m_0(1 - \mu)\min\{0, \cos(2\pi t)\}
+\end{equation}
+where $m_0$ is manually tuned to produce roughly realistic terminus variations.
+We used a value of $m_0$ on the order of 20 km/yr \textcolor{red}{tune it some more}.
+Spread over an inland distance of roughly 1 km in a 5 km-wide fjord for only the summer season, this gives a total discharge roughly of the same order as the observed value of 24 km${}^3$/yr \citep{king2018seasonal}.
+
+\textcolor{red}{Description of results}
+
+Several processes govern the terminus dynamics of Greenland outlet glaciers, including frontal ablation from ocean melt, stress-induced crevassing and calving, and back-pressure from sea ice or ice melange in the fjord.
+We did not attempt to include a real calving law in this exercise.
+Moreover, we used an ad hoc approach to simulate frontal ablation by instead applying high surface melt that ramps up within a small distance of the terminus.
+We are nonetheless able to simulate ice-free areas and the advance and retreat of the glacier terminus using the dual form of the momentum balance equations.
+Closing the gap between the simple demonstrative parameterizations used here and reality is the subject of future work.
+For example, one could add calving by setting the ice thickness to zero in areas near the glacier terminus where surface crevasses would penetrate to the water line according to the Nye criterion.
+
+
 \section{Discussion}
 
 \textcolor{red}{Finish this...}

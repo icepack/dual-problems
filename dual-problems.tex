@@ -304,7 +304,7 @@ We can use integration by parts to push the symmetric gradient of $v$ over onto 
 If we require that this is equal to 0 for all perturbation fields $v$, we recover both conservation of membrane stress (equation \eqref{eq:membrane-stress-conservation}) and the boundary condition (equation \eqref{eq:terminus-bc}).
 In effect, finding a critical point of the dual action functional is a constrained optimization problem; the velocity field acts like a Lagrange multiplier that enforces the constraint of stress conservation.
 
-\begin{figure}[t]
+\begin{figure}[h]
     \includegraphics[width=0.48\linewidth]{demos/singularity/primal.pdf}\includegraphics[width=0.48\linewidth]{demos/singularity/dual.pdf}
     \caption{The viscous part of the action for the primal problem as a function of the strain rate (left) and for the dual problem as a function of the stress (right).
     The second derivative of the viscous dissipation goes to infinity near zero strain rate for the primal problem, but to zero near zero stress for the dual problem.}
@@ -388,7 +388,7 @@ Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution
 
 \subsection{Slab of ice flowing into the ocean}
 
-\begin{figure}[t]
+\begin{figure}[h]
 \centering
     \includegraphics[width = 0.8\linewidth]{demos/slab/figures/marine_ice_sheet.pdf}
     \caption{Setup for modelling a slab of ice on an inclined bed flowing into the ocean. At $x = 0$ we enforce a thickness $h = 500\,\mathrm{m}$ in order to approach a parallel slab of ice far upstream of the grounding line. The dotted line represents the sea level.}
@@ -414,7 +414,7 @@ For this problem, we not only solve for the velocity $u$ or the velocity-stress 
 We solve the free boundary problem with a primal method that seeks the velocity and thickness in $CG(2)\times CG(2)$, and with a dual method that computes the velocity, membrane stress and thickness in the space $CG(2)\times DG(1)\times CG(2)$. For the primal method, we consider a sequence of regularisation parameters $\epsilon$ between $1\, \mathrm{yr}^{-1}$ and $10^{-12}\,\mathrm{yr}^{-1}$. The results for the grounding line position are displayed in Table \ref{tab:slab}. The discrete problem is solved with Newton's method, and the initial guess for the values of the ice velocity, the ice thickness, and the extensional stress are set equal to the slab solution, such that $h = 500\,\mathrm{m}$, $u$ is equal to \eqref{eq:u_slab}, and $M = 0$. The initial guess for the grounding line position is set to the point where the flotation condition \eqref{eq:flotation-condition} holds for the constant thickness slab. We plot the values of the relative Newton residual in Figure \ref{fig:newton-its}. We can see that not only is the dual method just as accurate as the primal method solved using the lowest value of regularisation, but the rate of convergence of the Newton solver for the primal formulation quickly decreases for low values of $\epsilon$. In fact, for values of $\epsilon$ equal to or lower than $10^{-14}\,\mathrm{yr}^{-1}$, the relative Newton residual no longer reaches the minimum tolerance of $10^{-8}$ that we set for this problem.
 
 %\renewcommand{\arraystretch}{1.25}
-\begin{table}[t]
+\begin{table}[h]
 \centering
 \caption{Results for the slab of ice flowing into the ocean. Values of the steady state grounding line position $x_g$ and thickness at the grounding line for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation. We also present the number of Newton iterations required to converge.}
 \label{tab:slab}
@@ -426,7 +426,7 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure}[h]
     \centering
     \includegraphics[width=\linewidth]{demos/slab/figures/newton_its_alpha1.00.pdf}
     \caption{Results for the slab of ice flowing into the ocean. Norm of the relative Newton residual for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation.}
@@ -435,7 +435,7 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
 
 \subsection{Gibbous ice shelf} \label{sec:gibbous-ice-shelf}
 
-\begin{figure}[t]
+\begin{figure}[h]
     \begin{center}
         \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/steady-state.pdf}
     \end{center}
@@ -443,13 +443,7 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
     \label{fig:gibbous}
 \end{figure}
 
-As a second check that the dual form of the momentum balance equation produces the same answers as the primal form, we used the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}.
-The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
-We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
-We then project these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
-The results are shown in figure \ref{fig:gibbous} and are identical to those obtained from the primal form of the problem up to discretization error.
-
-\begin{figure}[t]
+\begin{figure}[h]
     \begin{center}
         \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/volumes.pdf}
     \end{center}
@@ -459,7 +453,7 @@ The results are shown in figure \ref{fig:gibbous} and are identical to those obt
     \label{fig:gibbous-calving-volumes}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[h]
     \begin{center}
         \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/calved-thickness.pdf}
     \end{center}
@@ -468,6 +462,12 @@ The results are shown in figure \ref{fig:gibbous} and are identical to those obt
     The nonlinear solver for the velocity and membrane stress still converges with this thickness input.}
     \label{fig:gibbous-calving-thickness}
 \end{figure}
+
+As a second check that the dual form of the momentum balance equation produces the same answers as the primal form, we used the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}.
+The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
+We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
+We then project these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
+The results are shown in figure \ref{fig:gibbous} and are identical to those obtained from the primal form of the problem up to discretization error.
 
 As a third and final phase of this experiment, we run the same simulation, but every 24 years we set the ice thickness to 0 in a prescribed region near the terminus.
 This forcing mimics the effect of a large iceberg calving event.
@@ -491,7 +491,7 @@ Several different strategies can alleviate the need for manual adjustment; see A
 
 \subsection{Larsen C Ice Shelf}
 
-\begin{figure}[t]
+\begin{figure}[h]
     \begin{center}
         \includegraphics[width=0.75\linewidth]{demos/larsen/contours.pdf}
     \end{center}

@@ -605,25 +605,33 @@ For example, one could add calving by setting the ice thickness to zero in areas
 
 \section{Discussion}
 
-\textcolor{red}{Finish this...}
+In this paper we described the dual form of the momentum balance equation for glacier flow, an alternative expression of the same underlying physics but with different properties and several advantages.
+The most significant advantage is that the dual form remains solvable in the limit of zero ice thickness.
+We have found that the primal form is only solvable when setting some minimum thickness or using level set-type methods.
+Solvability at zero thickness makes it possible to implement advance and retreat of the terminus in a simple way without recourse to level set-type methods.
 
-Using the dual formulation of the problem has several advantages.
-The stress tensor may be an input to other parts of the physics.
-For example, it is part of the source terms for both heat and damage.
-The dual formulation includes the stress explicitly as an unknown in the problem.
-Solving for it directly offers greater accuracy than computing it after the fact from the velocity field.
-Second, the dual formulation reverses the behavior of all the nonlinearities around the zero-disturbance state.
-Infinite singularities in the primal formulation, which can only be dealt with by fudging the problem itself, become zero degeneracies in the dual.
+Another key feature is that the dual form reverses the behavior of all the nonlinearities around the zero-disturbance state.
+The primal formulation of the problem has a singularity (i.e. terms in the momentum balance equation go to $\infty$) in the limit as the strain rate goes to zero.
+Infinite singularities can only be dealt with by fudging the problem itself.
+In the dual form, however, this singularity becomes instead a degeneracy (terms that go to zero where the usual theory requires positivity).
 These degeneracies are still a challenge.
-But the problem, with no modifications, is amenable to solution by continuation methods.
-We believe that trust region methods might work as well and this remains to be explored.
+But the problem, with no modifications, is amenable to solution by continuation or other methods.
+Trust region methods might work as well and this remains to be explored.
+
+The dual form possess only degeneracies in the limit as the thickness or membrane stress go to zero.
+The primal form has a singularity when the strain rate goes to zero, but a degeneracy in the limit as the thickness goes to zero.
+Moreover, when the thickness goes to zero, the strain rate tends to also go to zero.
+We hypothesize that this mixture of singularity and degeneracy is makes the primal form of the problem impossible to solve in the limit as the thickness goes to zero.
+We additionally hypothesize that the dual form remains solvable as the thickness goes to zero because it contains only degeneracies.
+But we have no proof either way and at this stage these hypotheses are at best educated guesses.
 
 The dual formulation does come with several disadvantages.
 The number of unknowns in the dual formulation is much greater than in the primal form, thus putting more pressure on computer memory.
 The resulting linear systems are indefinite rather than positive-definite.
-Finally, the choice of finite element basis is much more delicate.
-The dual formulation offers alternative possibilities for incorporating plastic yield as an inequality constraint.
-\textcolor{red}{Elaborate...}
+Finally, since the dual form is a mixed problem, the choice of finite element basis is much more delicate.
+
+Despite these disadvantages, we argue that the dual form is worth considering as an alternative to the conventional primal form of the glacier momentum balance equation because of how easy it is to simulate terminus advance and retreat.
+While we do not aim to study directly the holy grail problem of calving laws, making it easier to simulate terminus evolution is a virtual requirement for testing these calving laws with computer models.
 
 
 

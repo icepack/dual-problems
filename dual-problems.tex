@@ -528,6 +528,23 @@ This approach does not exactly solve the discretized dual momentum balance equat
 
 \subsection{Kangerdlugssuaq Glacier}
 
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/kangerd/volumes.pdf}
+    \end{center}
+    \caption{Total volume in km${}^3$ of ice in the computational domain, exhibiting summer troughs and winter peaks.
+    The summer frontal ablation rate is tuned to give an overall constant yearly average volume.}
+    \label{fig:kangerd-volumes}
+\end{figure}
+
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/kangerd/contours.pdf}
+    \end{center}
+    \caption{Most retreated and most advanced positions of the simulated terminus overlaid on MODIS Mosaic of Greenland.}
+    \label{fig:kangerd-contours}
+\end{figure}
+
 As our final test case, we studied Kangerdlugssuaq Glacier, a grounded outlet glacier on the east coast of Greenland.
 Kangerdlugssuaq is one of the top three contributors to the total discharge from Greenland \citep{enderlin2014improved, mouginot2019forty}.
 The purpose of this exercise is to demonstrate that we can simulate the evolution of a marine-terminating glacier, including the seasonal advance and retreat of the terminus in response to ocean-induced frontal ablation in summer, using the dual form of the momentum balance equation.
@@ -567,15 +584,20 @@ Finally, we set the melt rate at time $t$ as
 \begin{equation}
     \dot m = m_0(1 - \mu)\min\{0, \cos(2\pi t)\}
 \end{equation}
-where $m_0$ is manually tuned to produce roughly realistic terminus variations.
-We used a value of $m_0$ on the order of 20 km/yr \textcolor{red}{tune it some more}.
+where $m_0$ is a maximum melt rate that we have to choose.
+
+In general, the total volume of ice in the simulated domain oscillates from summer lows to winter highs.
+With too low or too high a maximum melt rate, there is an additional secular trend in the volume time series as the glacier advances or retreats down the fjord.
+We found that taking $m_0$ on the order of 30 km/yr makes the yearly-averaged volume roughly constant; see figure \ref{fig:kangerd-volumes}.
 Spread over an inland distance of roughly 1 km in a 5 km-wide fjord for only the summer season, this gives a total discharge roughly of the same order as the observed value of 24 km${}^3$/yr \citep{king2018seasonal}.
 
-\textcolor{red}{Description of results}
-
+Figure \ref{fig:kangerd-contours} shows the most retreated and most advanced positions of the terminus during the simulation period.
+The true calving terminus of the glacier is upstream of the simulated calving terminus, which is likely a consequence of our initialization or other under-parameterized quantities.
+Additionally, the true calving terminus is concave -- the centerline of the main trunk of the glacier is slightly more retreated than the margins.
+The simulated terminus, on the other hand, is convex -- the centerline is more advanced than the margins.
+This discrepancy shows that the ad hoc rule we used to add frontal ablation is imperfect.
 Several processes govern the terminus dynamics of Greenland outlet glaciers, including frontal ablation from ocean melt, stress-induced crevassing and calving, and back-pressure from sea ice or ice melange in the fjord.
 We did not attempt to include a real calving law in this exercise.
-Moreover, we used an ad hoc approach to simulate frontal ablation by instead applying high surface melt that ramps up within a small distance of the terminus.
 We are nonetheless able to simulate ice-free areas and the advance and retreat of the glacier terminus using the dual form of the momentum balance equations.
 Closing the gap between the simple demonstrative parameterizations used here and reality is the subject of future work.
 For example, one could add calving by setting the ice thickness to zero in areas near the glacier terminus where surface crevasses would penetrate to the water line according to the Nye criterion.

@@ -1,3 +1,6 @@
+volumes.pdf contours.pdf &: make_plots.py kangerdlugssuaq-year5.h5
+	python make_plots.py
+
 kangerdlugssuaq-year5.h5: simulate.py kangerdlugssuaq-year1.h5
 	python simulate.py \
 		--input kangerdlugssuaq-year1.h5 \

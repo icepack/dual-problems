@@ -3,6 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import firedrake
 from firedrake import assemble, inner, sqrt, dx, ds
+try:
+    from firedrake.pyplot import tripcolor, streamplot
+except ModuleNotFoundError:
+    from firedrake import tripcolor, streamplot
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--calving-freq", type=float)
@@ -53,18 +57,18 @@ axes[0].set_ylabel("northing (meters)")
 axes[0].ticklabel_format(style="sci", axis="both", scilimits=(0, 0))
 
 axes[0].set_title("Thickness")
-colors = firedrake.tripcolor(h_steady, axes=axes[0])
+colors = tripcolor(h_steady, axes=axes[0])
 fig.colorbar(colors, label="meters", orientation="horizontal", pad=0.04, ax=axes[0])
 
 axes[1].set_title("Velocity")
-colors = firedrake.streamplot(u_steady, resolution=10e3, axes=axes[1])
+colors = streamplot(u_steady, resolution=10e3, axes=axes[1])
 fig.colorbar(colors, label="meters/year", orientation="horizontal", pad=0.04, ax=axes[1])
 
 axes[2].set_title("Membrane stress")
 elt = firedrake.FiniteElement("DG", "triangle", M_steady.ufl_element().degree())
 S = firedrake.FunctionSpace(M_steady.ufl_domain(), elt)
 m = firedrake.interpolate(1e3 * sqrt(inner(M_steady, M_steady)), S)
-colors = firedrake.tripcolor(m, axes=axes[2])
+colors = tripcolor(m, axes=axes[2])
 fig.colorbar(colors, label="kPa", orientation="horizontal", pad=0.04, ax=axes[2])
 
 fig.savefig("steady-state.pdf", bbox_inches="tight")
@@ -76,7 +80,7 @@ axes.get_xaxis().set_visible(False)
 axes.set_ylabel("northing (meters)")
 axes.ticklabel_format(style="sci", axis="both", scilimits=(0, 0))
 index = (timesteps_3 <= args.calving_freq).argmin() + 1
-colors = firedrake.tripcolor(hs_3[index], vmin=0.0, axes=axes)
+colors = tripcolor(hs_3[index], vmin=0.0, axes=axes)
 fig.colorbar(colors, label="meters", orientation="horizontal", pad=0.04)
 fig.savefig("calved-thickness.pdf", bbox_inches="tight")
 

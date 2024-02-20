@@ -7,6 +7,10 @@ from matplotlib.animation import FuncAnimation
 import rasterio
 import firedrake
 from firedrake import Constant, inner, assemble, dx
+try:
+    from firedrake.pyplot import tricontour, tripcolor
+except ModuleNotFoundError:
+    from firedrake import tricontour, tripcolor
 import icepack
 
 parser = argparse.ArgumentParser()
@@ -61,7 +65,7 @@ for ax, text in zip(axes, ["2015", "2019", "2023"]):
     ax.set_ylim((1075e3, 1250e3))
 time_indices = [np.argmin(np.abs(timesteps - time)) for time in [0.0, 4.5, 12.0]]
 for index, time_index in enumerate(time_indices):
-    firedrake.tripcolor(hs[time_index], axes=axes[index])
+    tripcolor(hs[time_index], axes=axes[index])
 fig.savefig("thickness.pdf", bbox_inches="tight")
 
 fig, axes = plt.subplots()
@@ -74,7 +78,7 @@ handles = []
 for time_index, color in zip(time_indices, colors):
     Q = firedrake.FunctionSpace(mesh, "CG", 1)
     h = firedrake.project(hs[time_index], Q)
-    contourset = firedrake.tricontour(
+    contourset = tricontour(
         h, levels=[0.0, 20.0], colors=[(0, 0, 0, 0), color], axes=axes,
     )
     handles.append(contourset.legend_elements()[0][-1])
@@ -100,7 +104,7 @@ if args.with_movie:
     axes.set_aspect("equal")
     axes.set_xlim((-2250e3, -2025e3))
     axes.set_ylim((1075e3, 1250e3))
-    colors = firedrake.tripcolor(hs[0], num_sample_points=4, axes=axes)
+    colors = tripcolor(hs[0], num_sample_points=4, axes=axes)
     fig.colorbar(colors)
     animation = FuncAnimation(
         fig, lambda h: colors.set_array(fn_plotter(h)), hs, interval=1e3/24

@@ -4,6 +4,10 @@ from matplotlib.lines import Line2D
 import rasterio
 import firedrake
 from firedrake import dx
+try:
+    from firedrake.pyplot import tricontour
+except ModuleNotFoundError:
+    from firedrake import tricontour
 import icepack
 
 with firedrake.CheckpointFile("kangerdlugssuaq-year5.h5", "r") as chk:
@@ -62,8 +66,8 @@ axes.set_ylim((-2308e3, -2270e3))
 axes.ticklabel_format(axis="both", style="scientific", scilimits=(0, 0))
 axes.imshow(image, **imshow_kwargs)
 kwargs = {"levels": [9.0, 10.0], "axes": axes}
-firedrake.tricontour(h_minvol, colors="tab:blue", **kwargs)
-firedrake.tricontour(h_maxvol, colors="tab:green", **kwargs)
+tricontour(h_minvol, colors="tab:blue", **kwargs)
+tricontour(h_maxvol, colors="tab:green", **kwargs)
 legend_elements = [
     Line2D([0], [0], color="tab:blue", lw=1, label=f"t = {tmin:.1f} yrs"),
     Line2D([0], [0], color="tab:green", lw=1, label=f"t = {tmax:.1f} yrs"),

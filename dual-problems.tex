@@ -605,7 +605,7 @@ For example, one could add calving by setting the ice thickness to zero in areas
 
 \section{Discussion}
 
-In this paper we described the dual form of the momentum balance equation for glacier flow, an alternative expression of the same underlying physics but with different properties and several advantages.
+The momentum balance equation for glacier flow has an alternative, dual expression of the same underlying physics but with different properties and several advantages.
 The most significant advantage is that the dual form remains solvable in the limit of zero ice thickness.
 We have found that the primal form is only solvable when setting some minimum thickness or using level set-type methods.
 Solvability at zero thickness makes it possible to implement advance and retreat of the terminus in a simple way without recourse to level set-type methods.
@@ -618,6 +618,7 @@ These degeneracies are still a challenge.
 But the problem, with no modifications, is amenable to solution by continuation or other methods.
 Trust region methods might work as well and this remains to be explored.
 
+The story becomes more complicated when we consider the interaction between the dependence on thickness and membrane stress or strain rate.
 The dual form possess only degeneracies in the limit as the thickness or membrane stress go to zero.
 The primal form has a singularity when the strain rate goes to zero, but a degeneracy in the limit as the thickness goes to zero.
 Moreover, when the thickness goes to zero, the strain rate tends to also go to zero.
@@ -630,8 +631,22 @@ The number of unknowns in the dual formulation is much greater than in the prima
 The resulting linear systems are indefinite rather than positive-definite.
 Finally, since the dual form is a mixed problem, the choice of finite element basis is much more delicate.
 
-Despite these disadvantages, we argue that the dual form is worth considering as an alternative to the conventional primal form of the glacier momentum balance equation because of how easy it is to simulate terminus advance and retreat.
-While we do not aim to study directly the holy grail problem of calving laws, making it easier to simulate terminus evolution is a virtual requirement for testing these calving laws with computer models.
+There are several promising avenues of future work on this problem.
+Explicitly including the stress tensor as an unknown and the constitutive relation as an equation to be solved opens up several possibilities for modifying the physics.
+Since we do not need to explicitly solve for the stress tensor in terms of the strain rate tensor, we can easily implement composite flow laws like the Goldsby-Kohlstedt law.
+We could also add a term containing the time derivative of the stress tensor to the constitutive relation to implement Maxwell viscoelasticity.
+Both of these extensions have historically been difficult to achieve with conventional approaches to glacier flow modeling.
+Finally, the solvability of the dual problem in the limit of zero ice thickness can expand the scope of glaciological data assimilation.
+For example, it may become possible to assimilate the entire time series of altimetry measurements from ICESat-2 into flow models in a way that constraints not just the elevation of grounded ice, but what areas are free of ice.
+
+
+% ------------------
+\section{Conclusion}
+
+In this paper, we derived the dual form of the glacier momentum balance equation, implemented a numerical solver for it, and demonstrated its use on synthetic and real problems.
+We argue that the dual form is worth considering as an alternative to the conventional primal form because of how easy it is to simulate terminus advance and retreat.
+We did not aim to study directly the holy grail problem of calving laws here.
+But making it easier to simulate terminus evolution is a virtual requirement for testing these calving laws with computer models.
 
 
 

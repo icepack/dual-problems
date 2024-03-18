@@ -1,11 +1,8 @@
 name: 'Compile and upload document'
-on: [push, pull_request]
+on: [push]
 jobs:
   build_latex:
-    runs-on: ubuntu-latest
-    container:
-      image: docker.io/firedrakeproject/firedrake-vanilla:2023-11
-      options: --user root
+    runs-on: self-hosted
     steps:
       - name: Activate Firedrake virtual environment
         run: |
@@ -13,8 +10,8 @@ jobs:
           echo PATH=$PATH >> $GITHUB_ENV
       - name: Install dependencies
         run: |
-          apt update
-          apt install -yq patchelf texlive texlive-fonts-extra
+          sudo apt update
+          sudo apt install -yq patchelf texlive texlive-fonts-extra
           pip install netCDF4
           pip install git+https://github.com/firedrakeproject/irksome.git@05e122041a2487b3c5b8946847397e2b81c81c1a
           pip install git+https://github.com/icepack/Trilinos.git

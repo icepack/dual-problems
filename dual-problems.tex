@@ -659,11 +659,11 @@ But making it easier to simulate terminus evolution is a virtual requirement for
 \section{Discretization by finite elements}
 \label{app:discretization}
 
-Roughly any conforming finite element basis is stable for the primal form of the groundwater flow equation as long as the mesh is regular.
+Roughly any conforming finite element basis is stable for the primal form of symmetric, positive-definite elliptic equations, such as the diffusion and elasticity equations, as long as the mesh is regular.
 The most common choice is to use piecewise-continuous polynomials of a given degree $k$ on triangles, or the tensor product of polynomials on quads.
 We will refer to this basis as $CG(k)$.
 While dual formulations have many advantages, the main challenge to overcome is that most choices of basis are unstable -- the resulting linear systems are either singular or their inverses have unbounded norm in the limit as the mesh is refined.
-For example, using $CG(k)$ elements for the pressure and the product $CG(k)^2$ for the velocity is an unstable discretization of the dual form of the groundwater problem.
+For example, using $CG(k)$ elements for the temperature and the product $CG(k)^2$ for the flux is an unstable discretization of the dual form of the diffusion equation.
 Making matters even harder, the SSA and other problems for a pair of vector and tensor fields have an additional invariant to enforce -- the symmetry of the stress tensor -- which can be difficult to achieve in practice.
 
 The question of how to choose basis functions that give a stable discretization of dual problems is the subject of \emph{mixed} finite element methods.

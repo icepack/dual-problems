@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import rasterio
@@ -47,31 +48,31 @@ extent = (xmin, xmax, ymin, ymax)
 imshow_kwargs = {"extent": extent, "cmap": "Greys_r", "vmin": 0e3, "vmax": 30e3}
 
 # Make some contour plots of the thickness at the maximum and minimum extent
-index_min = np.argmin(volumes)
-index_max = np.argmax(volumes[index_min:]) + index_min
+inflection_indices = np.where(np.diff(np.sign(np.diff(volumes))))[0]
+index_start, index_end = inflection_indices[1:3]
 hmax = np.array([h.dat.data_ro.max() for h in hs]).max()
-tmin = timesteps[index_min]
-tmax = timesteps[index_max]
+tmin = timesteps[index_start]
+tmax = timesteps[index_end]
 
 Q = firedrake.FunctionSpace(mesh, "CG", 1)
-h_minvol = firedrake.Function(Q).project(hs[index_min])
-h_maxvol = firedrake.Function(Q).project(hs[index_max])
 
 fig, axes = plt.subplots()
 axes.set_aspect("equal")
 axes.set_xlabel("easting (m)")
 axes.set_ylabel("northing")
-axes.set_xlim((470e3, 510e3))
-axes.set_ylim((-2308e3, -2270e3))
+axes.set_xlim((485e3, 510e3))
+axes.set_ylim((-2308e3, -2285e3))
 axes.ticklabel_format(axis="both", style="scientific", scilimits=(0, 0))
 axes.imshow(image, **imshow_kwargs)
 kwargs = {"levels": [9.0, 10.0], "axes": axes}
-tricontour(h_minvol, colors="tab:blue", **kwargs)
-tricontour(h_maxvol, colors="tab:green", **kwargs)
-legend_elements = [
-    Line2D([0], [0], color="tab:blue", lw=1, label=f"t = {tmin:.1f} yrs"),
-    Line2D([0], [0], color="tab:green", lw=1, label=f"t = {tmax:.1f} yrs"),
-]
-axes.legend(handles=legend_elements, loc="upper right")
+norm = matplotlib.colors.Normalize(vmin=tmin, vmax=tmax)
+cmap = matplotlib.colormaps.get_cmap("viridis")
+for index in range(index_start, index_end + 1):
+    t = timesteps[index]
+    color = matplotlib.colors.to_hex(cmap(norm(t)))
+    tricontour(firedrake.Function(Q).project(hs[index]), colors=color, **kwargs)
+
+mappable = matplotlib.cm.ScalarMappable(norm=norm, cmap="viridis")
+fig.colorbar(mappable, ax=axes, orientation="vertical", label="time (yrs)")
 axes.set_title("Simulated terminus of Kangerdlugssuaq", pad=15)
 fig.savefig("contours.pdf", bbox_inches="tight")

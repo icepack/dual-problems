@@ -3,6 +3,7 @@ import subprocess
 import numpy as np
 import geojson
 import xarray
+import tqdm
 import firedrake
 from firedrake import assemble, Constant, inner, grad, dx, ds, dS
 import icepack
@@ -11,8 +12,9 @@ from icepack2 import model
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", default="larsen-extrapolated.h5")
+parser.add_argument("--time-to-calve", type=float, default=2.0)
 parser.add_argument("--timesteps-per-year", type=int, default=12)
-parser.add_argument("--final-time", type=float, default=8.0)
+parser.add_argument("--final-time", type=float, default=40.0)
 parser.add_argument("--degree", type=int, default=1)
 parser.add_argument("--output", default="larsen-simulation.h5")
 args = parser.parse_args()
@@ -110,7 +112,7 @@ problem_params = {
 }
 solver_params = {
     "solver_parameters": {
-        "snes_monitor": None,
+        #"snes_monitor": None,
         "snes_max_it": 10,
         "snes_convergence_test": "skip",
         "snes_type": "newtonls",
@@ -164,11 +166,10 @@ h_c = firedrake.Constant(1.0)
 with firedrake.CheckpointFile(args.output, "w") as chk:
     chk.save_function(h, name="thickness", idx=0)
 
-    time_to_calve = 4.0
     num_steps = int(args.final_time * args.timesteps_per_year) + 1
     timesteps = np.linspace(0.0, args.final_time, num_steps)
-    for step, t in enumerate(timesteps):
-        if abs(t - time_to_calve) < float(dt) / 2:
+    for step, t in enumerate(tqdm.tqdm(timesteps)):
+        if abs(t - args.time_to_calve) < float(dt) / 2:
             print("IT CALVING NOW")
             h.interpolate(μ * h)
             h_n.assign(h)
@@ -181,3 +182,4 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
         chk.save_function(h, name="thickness", idx=step + 1)
 
     chk.h5pyfile.create_dataset("timesteps", data=timesteps)
+    chk.h5pyfile.attrs["time_to_calve"] = args.time_to_calve

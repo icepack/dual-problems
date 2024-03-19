@@ -19,6 +19,7 @@ args = parser.parse_args()
 
 with firedrake.CheckpointFile("larsen-simulation.h5", "r") as chk:
     timesteps = chk.h5pyfile["timesteps"][:]
+    time_to_calve = chk.h5pyfile.attrs["time_to_calve"]
     mesh = chk.load_mesh()
     hs = []
     for index in range(len(timesteps)):
@@ -51,22 +52,17 @@ with rasterio.open(image_filename, "r") as image_file:
 
 xmin, ymin, xmax, ymax = rasterio.windows.bounds(window, transform)
 extent = (xmin, xmax, ymin, ymax)
-imshow_kwargs = {"extent": extent, "cmap": "Greys_r", "vmin": 12e3, "vmax": 16.38e3}
+imshow_kwargs = {
+    "extent": extent,
+    "cmap": "Greys_r",
+    "vmin": 12e3,
+    "vmax": 16.83e3,
+    "interpolation": "none",
+}
 
 # Make a plot of the ice thickness before, during, and after the calving event
-fig, axes = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
-for ax, text in zip(axes, ["2015", "2019", "2023"]):
-    ax.set_title(text)
-    ax.set_aspect("equal")
-    ax.imshow(image, **imshow_kwargs)
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
-    ax.set_xlim((-2250e3, -2025e3))
-    ax.set_ylim((1075e3, 1250e3))
-time_indices = [np.argmin(np.abs(timesteps - time)) for time in [0.0, 4.5, 12.0]]
-for index, time_index in enumerate(time_indices):
-    tripcolor(hs[time_index], axes=axes[index])
-fig.savefig("thickness.pdf", bbox_inches="tight")
+calving_index = np.argmin(np.abs(timesteps - time_to_calve)) + 1
+time_indices = [0, calving_index, -1]
 
 fig, axes = plt.subplots()
 axes.set_aspect("equal")
@@ -75,14 +71,15 @@ axes.get_xaxis().set_visible(False)
 axes.get_yaxis().set_visible(False)
 colors = ["tab:blue", "tab:green", "tab:purple"]
 handles = []
+Q = firedrake.FunctionSpace(mesh, "CG", 1)
+tricontour_kwargs = {"levels": [0.0, 20.0], "linewidths": 1.0}
 for time_index, color in zip(time_indices, colors):
-    Q = firedrake.FunctionSpace(mesh, "CG", 1)
     h = firedrake.project(hs[time_index], Q)
     contourset = tricontour(
-        h, levels=[0.0, 20.0], colors=[(0, 0, 0, 0), color], axes=axes,
+        h, colors=[(0, 0, 0, 0), color], axes=axes, **tricontour_kwargs
     )
     handles.append(contourset.legend_elements()[0][-1])
-texts = ["2015", "2019", "2027"]
+texts = [f"{2015 + timesteps[index]:.0f}" for index in time_indices]
 axes.legend(handles, texts)
 scalebar = AnchoredSizeBar(
     axes.transData,

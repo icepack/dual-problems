@@ -227,8 +227,10 @@ Likewise, for the sliding relation \eqref{eq:sliding-law}, we can observe that
 \end{equation}
 Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative}, we can show that the SSA momentum balance are the Euler-Lagrange equations for the following action functional:
 \begin{align}
-    J(u) & = \int_\Omega\left(\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} + \rho_I gh\nabla s\cdot u\right)dx  \nonumber \\
-    & \qquad + \frac{1}{2}\int_{\Gamma_t}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma
+    & J(u) = \nonumber\\
+    & \qquad\int_\Omega\Bigg\{\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} \nonumber\\
+    & \qquad\qquad\qquad\qquad\qquad\qquad\qquad + \rho_I gh\nabla s\cdot u\Bigg\}dx  \nonumber \\
+    & \qquad\qquad + \frac{1}{2}\int_{\Gamma_t}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma
     \label{eq:ssa-primal-action}
 \end{align}
 Note that the action has units of energy per unit time, or power.
@@ -277,7 +279,8 @@ We can then define a slipperiness coefficient $K = C^{-m}$.
 
 With these preparations in place, the dual form is:
 \begin{align}
-    L(u, M, \tau) = & \int_\Omega\Bigg\{\frac{2}{n + 1}hA|M|_{\mathscr A}^{n + 1} + \frac{1}{m + 1}K|\tau|^{m + 1} \nonumber\\
+    & L(u, M, \tau) = \nonumber\\
+    & \quad \int_\Omega\Bigg\{\frac{2}{n + 1}hA|M|_{\mathscr A}^{n + 1} + \frac{1}{m + 1}K|\tau|^{m + 1} \nonumber\\
     & \qquad\qquad - hM:\dot\varepsilon(u) + \tau\cdot u - \rho_Igh\nabla s\cdot u\Bigg\}dx \nonumber \\
     & \qquad - \frac{1}{2}\int_\Gamma\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\;d\gamma
     \label{eq:ssa-dual-form}
@@ -302,8 +305,8 @@ Taking the variational derivative of $L$ with respect to $u$ along $v$ gives
 which is not exactly what we want.
 We can use integration by parts to push the symmetric gradient of $v$ over onto $h\,M$ in the first term however:
 \begin{align}
-    \ldots & = \int_\Omega\left\{\nabla\cdot hM + \tau - \rho_Igh\nabla s\right\}\cdot v\;dx \\
-    & \qquad + \int_\Gamma\left(hM\cdot\nu - \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu\right)\cdot v\;dx.
+    \ldots & = \int_\Omega\left\{\nabla\cdot hM + \tau - \rho_Igh\nabla s\right\}\cdot v\;dx \nonumber\\
+    & \quad + \int_\Gamma\left(hM\cdot\nu - \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu\right)\cdot v\;dx.
 \end{align}
 If we require that this is equal to 0 for all perturbation fields $v$, we recover both conservation of membrane stress (equation \eqref{eq:membrane-stress-conservation}) and the boundary condition (equation \eqref{eq:terminus-bc}).
 In effect, finding a critical point of the dual action functional is a constrained optimization problem; the velocity field acts like a Lagrange multiplier that enforces the constraint of stress conservation.

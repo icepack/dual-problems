@@ -496,7 +496,7 @@ Several different strategies can alleviate the need for manual adjustment; see A
         \includegraphics[width=0.75\linewidth]{demos/larsen/contours.pdf}
     \end{center}
     \caption{Calving terminus locations for Larsen C Ice Shelf prognostic simulation.
-    The contours shown are at the start of the run, immediately after the simulated calving event, and several years later when the ice shelf has readvanced slightly.}
+    The contours shown are at the start of the run, immediately after the simulated calving event, and several decades later when the ice shelf has readvanced closer to its original position.}
     \label{fig:larsen-terminus-position}
 \end{figure}
 
@@ -507,14 +507,15 @@ The Larsen C simulation requires several steps.
     \item We first estimated the fluidity field (the coefficient $A$ in the Glen law $\dot\varepsilon = A\tau^3$) of the ice shelf from remote sensing measurements of the thickness and velocity.
         This step uses the primal form of the momentum balance equation from icepack.
     \item We extrapolated the ice thickness and velocity onto a larger spatial domain.
-    \item We ran the simulation using the mass and dual momentum balance from the nominal start date of 2015 until the time of the calving event in \textcolor{red}{2017}.
+    \item We ran the simulation using the mass and dual momentum balance from the nominal start date of 2015 until the calving event in 2017.
     \item We digitized the terminus position immediately after the calving event by hand and use the digitized terminus position to define an ice mask.
-        \textcolor{red}{We only have a digitized outline for 2019 so we actually used that as the calving event time, we should probably fix that before submitting this, but the idea is the same.}
     \item Using this mask, we set the ice thickness to zero over the spatial extent of the calved area.
-    \item We ran the simulation for several more years after the calving event to see how the terminus advances again.
+    \item We ran the simulation for 40 years after the calving event to see how the terminus advances again.
 \end{enumerate}
 The simulated terminus positions are shown in figure \ref{fig:larsen-terminus-position}.
 The model can effectively handle the shock of a calving event and the subsequent readvance of the terminus.
+We find that after 40 years, the terminus has readvanced more than half way to its original position.
+A realistic simulation would need to include the possibility of smaller-scale calving events during this time.
 
 We used the CG(1)/DG(0) pair for the velocity and stress as in the previous examples.
 To simulate the evolution of the glacier thickness, we used DG(1) elements together with the upwind numerical flux.

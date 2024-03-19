@@ -1,53 +1,56 @@
-\documentclass{article}
+\NeedsTeXFormat{LaTeX2e}
+
+%\documentclass[review,oneside]{igs}
+\documentclass[twocolumn]{igs}
+
+\usepackage{igsnatbib}
+
+% check if we are compiling under latex or pdflatex
+\ifx\pdftexversion\undefined
+    \usepackage[dvips]{graphicx}
+\else
+    \usepackage[pdftex]{graphicx}
+    \usepackage{epstopdf}
+    \epstopdfsetup{suffix=}
+\fi
+
 
 \usepackage{amsmath}
 %\usepackage{amsfonts}
-\usepackage{amsthm}
+%\usepackage{amsthm}
 %\usepackage{amssymb}
-%\usepackage{mathrsfs}
+\usepackage{mathrsfs}
 %\usepackage{fullpage}
 %\usepackage{mathptmx}
 %\usepackage[varg]{txfonts}
 \usepackage{color}
-\usepackage[charter]{mathdesign}
-\usepackage[pdftex]{graphicx}
+%\usepackage[charter]{mathdesign}
 %\usepackage{float}
 %\usepackage{hyperref}
 %\usepackage[modulo, displaymath, mathlines]{lineno}
 %\usepackage{setspace}
 %\usepackage[titletoc,toc,title]{appendix}
-\usepackage{natbib}
+%\usepackage{natbib}
 \usepackage{booktabs}
 \usepackage{multirow}
 
 %\linenumbers
 %\doublespacing
 
-\theoremstyle{definition}
-\newtheorem*{defn}{Definition}
-\newtheorem*{exm}{Example}
-
-\theoremstyle{plain}
-\newtheorem*{thm}{Theorem}
-\newtheorem*{lem}{Lemma}
-\newtheorem*{prop}{Proposition}
-\newtheorem*{cor}{Corollary}
-
-\newcommand{\argmin}{\text{argmin}}
-\newcommand{\ud}{\hspace{2pt}\mathrm{d}}
-\newcommand{\bs}{\boldsymbol}
-\newcommand{\PP}{\mathsf{P}}
-
-\title{Dual action principles for ice sheet dynamics}
-\author{Daniel Shapero, Gonzalo Gonzalez de Diego}
-\date{}
-
 \begin{document}
 
-\maketitle
+\title[Terminus evolution via duality]{Numerical simulation of glacier terminus evolution using the dual action principle for momentum balance}
 
-\begin{abstract}
-    The momentum conservation equation for glacier flow can be described through minimization of an action functional \citep{bassis2010hamilton, dukowicz2010consistent}.
+\author[Shapero and de Diego]{Daniel Shapero$^1$, Gonzalo Gonzalez de Diego$^2$}
+
+\affiliation{
+    $^1$Polar Science Center, Applied Physics Laboratory, University of Washington, Seattle, WA, USA \\
+    $^2$Courant Institute of Mathematical Sciences, New York University, New York, NY, USA \\
+    Correspondence: Daniel Shapero $<$shapero@uw.edu$>$
+}
+
+\abstract{
+    The momentum conservation equation for glacier flow can be described through minimization of an action functional.
     Several software packages for glacier flow modeling use this action principle in the design of numerical solution procedures.
     We derive here an equivalent \emph{dual} action principle for the shallow stream approximation and implement this model using the finite element method.
     The key feature of the dual action is that the flow law and friction law are both inverted, which changes the character of the nonlinearities.
@@ -55,8 +58,9 @@
     In particular, the momentum balance equation remains solvable \emph{even when the ice thickness or strain rate are exactly equal to zero}.
     This robustness makes it possible to implement iceberg calving in a strikingly simple way: the modeler sets the ice thickness to zero in the desired area.
     We provide several demonstrations and a reference implementation.
-\end{abstract}
+}
 
+\maketitle
 
 % --------------------
 \section{Introduction}
@@ -802,7 +806,7 @@ For example, we can use the perturbation from equation \eqref{eq:regularized-new
 
 \pagebreak
 
-\bibliographystyle{plainnat}
+\bibliographystyle{igs}
 \bibliography{dual-problems.bib}
 
 \end{document}

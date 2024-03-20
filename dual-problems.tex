@@ -104,7 +104,7 @@ For background reading, we refer the reader to \citet{greve2009dynamics} for gla
 \subsection{The shallow stream equations}
 
 Here we review the differential equations that are commonly used to describe glacier flow.
-In section \S\ref{sec:primal-action-principles}, we will show how the momentum balance equation has a minimization principle.
+In the next section, we will show how the momentum balance equation has a minimization principle.
 
 The most common starting point for modeling glacier momentum balance is the Stokes equations with a power-law rheology, commonly known as Glen's law \citep{glen1958law, greve2009dynamics}.
 Numerically solving the Stokes equations in 3D has a high computational cost.
@@ -117,7 +117,7 @@ Here we focus on the \emph{shallow stream/shelf approximation} (SSA), which is c
 The SSA assumes that the vertical variation of the horizontal velocity is negligible, i.e. the velocity field is approximately a plug flow.
 In other words, the $x-z$ components of the strain rate tensor are much smaller than the $x-x$, $x-y$, and $y-y$ components.
 With this approximation, we can depth-average the first-order equations and the result is the SSA.
-The equations of motion are solved in a two-dimensional domain $\Omega$ whose boundary we denote by $\partial\Omega$.
+The equations of motion are solved in a two-dimensional domain $\Omega$.
 
 The main unknown to be solved for in the SSA is the depth-averaged ice velocity $u$.
 Some important intermediate quantities are the basal shear stress $\tau$ and the \emph{membrane stress} tensor $M$, a rank-2 tensor with units of stress that results from applying the low-aspect ratio assumption to the full 3D deviatoric stress tensor.
@@ -156,8 +156,8 @@ We will assume a generalized power law with some exponent $m$, i.e.
     \tau = -C|u|^{\frac{1}{m} - 1}u.
     \label{eq:sliding-law}
 \end{equation}
-Weertman sliding has $m = n$, while perfectly plasting sliding has $m = \infty$.
-Recent research suggests alternative forms that transition between Weertman-type sliding at low speeds and perfectly plasting sliding at higher speeds \citep{minchew2020toward}.
+Weertman sliding has $m = n$, while perfectly plastic sliding has $m = \infty$.
+Recent research suggests alternative forms that transition between Weertman-type sliding at low speeds and perfectly plastic sliding at higher speeds \citep{minchew2020toward}.
 For illustrative purposes equation \eqref{eq:sliding-law} is sufficient, and we will describe how to incorporate alternatives in the discussion.
 
 Finally, the thickness evolves in time according to the following depth-averaged mass conservation equation:
@@ -183,7 +183,7 @@ Marine ice sheets flow from the continent and into the ocean, where they go aflo
 If we are to model a marine ice sheet with the SSA, we must distinguish between a grounded and a floating region.
 This results in a free boundary problem where ice goes afloat once the condition \eqref{eq:flotation-condition} is satisfied.
 The boundary separating grounded from floating ice is known as the grounding line $x_g$.
-The possibility of a marine ice sheet isntability that could dramatically increase the rate of discharge of ice into the ocean has led to a substantial amount of research into grounding line dynamics \citep{schoof2007mis, durand2009mis, favier2012mis}.
+The possibility of a marine ice sheet instability that could dramatically increase the rate of discharge of ice into the ocean has led to a substantial amount of research into grounding line dynamics \citep{schoof2007mis, durand2009mis, favier2012mis}.
 
 Finally, we need to supply a set of boundary conditions for the problem to be well-posed.
 Along the part of the boundary where ice is flowing into the domain, we assume that the ice velocity is known from observations; this is a Dirichlet boundary condition.
@@ -230,7 +230,7 @@ Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative},
     & J(u) = \nonumber\\
     & \qquad\int_\Omega\Bigg\{\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} \nonumber\\
     & \qquad\qquad\qquad\qquad\qquad\qquad\qquad + \rho_I gh\nabla s\cdot u\Bigg\}dx  \nonumber \\
-    & \qquad\qquad + \frac{1}{2}\int_{\Gamma_t}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma
+    & \qquad\qquad + \frac{1}{2}\int_\Gamma\left(\rho_Igh^2 - \rho_Wgh_W^2\right)u\cdot\nu\; d\gamma
     \label{eq:ssa-primal-action}
 \end{align}
 Note that the action has units of energy per unit time, or power.
@@ -291,7 +291,7 @@ First, if we require that the variational derivative of $L$ with respect to $M$ 
     \left\langle\frac{\partial L}{\partial M}, N\right\rangle = \int_\Omega\left\{2hA|M|_{\mathscr{A}}^{n - 1}\mathscr{A}M - h\dot\varepsilon(u)\right\} : N\; dx = 0.
 \end{equation}
 This equation is the variational form of the inverse of the constitutive relation (equation \eqref{eq:constitutive-relation}).
-Next, taking the variational derivative of $L$ with respect $\tau$ along some perturbation $\sigma$, we get
+Next, taking the variational derivative of $L$ with respect to $\tau$ along some perturbation $\sigma$, we get
 \begin{equation}
     \left\langle\frac{\partial L}{\partial\tau}, \sigma\right\rangle = \int_\Omega\left\{K|\tau|^{m - 1}\tau + u\right\}\cdot\sigma\;dx = 0
 \end{equation}
@@ -470,7 +470,7 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
     \label{fig:gibbous-calving-thickness}
 \end{figure}
 
-As a second check that the dual form of the momentum balance equation produces the same answers as the primal form, we used the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}.
+As another check that the dual form of the momentum balance equation produces the same answers as the primal form, we used the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}.
 The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
 We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
 We then project these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
@@ -632,12 +632,12 @@ The story becomes more complicated when we consider the interaction between the 
 The dual form possess only degeneracies in the limit as the thickness or membrane stress go to zero.
 The primal form has a singularity when the strain rate goes to zero, but a degeneracy in the limit as the thickness goes to zero.
 Moreover, when the thickness goes to zero, the strain rate tends to also go to zero.
-We hypothesize that this mixture of singularity and degeneracy is makes the primal form of the problem impossible to solve in the limit as the thickness goes to zero.
+We hypothesize that this mixture of singularity and degeneracy makes the primal form of the problem impossible to solve in the limit as the thickness goes to zero.
 We additionally hypothesize that the dual form remains solvable as the thickness goes to zero because it contains only degeneracies.
 But we have no proof either way and at this stage these hypotheses are at best educated guesses.
 
 The dual formulation does come with several disadvantages.
-The number of unknowns in the dual formulation is much greater than in the primal form, thus putting more pressure on computer memory.
+The number of unknowns in the dual formulation is greater than in the primal form, thus putting more pressure on computer memory.
 The resulting linear systems are indefinite rather than positive-definite.
 Finally, since the dual form is a mixed problem, the choice of finite element basis is much more delicate.
 

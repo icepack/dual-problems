@@ -640,15 +640,18 @@ But we have no proof either way and at this stage these hypotheses are at best e
 The dual formulation does come with several disadvantages.
 The number of unknowns in the dual formulation is greater than in the primal form, thus putting more pressure on computer memory.
 The resulting linear systems are indefinite rather than positive-definite.
-Finally, since the dual form is a mixed problem, the choice of finite element basis is much more delicate.
+Finally, since the dual form is a mixed problem, it is possible to make bad choices of finite element basis, whereas almost any basis will work for the primal form.
 
 There are several promising avenues of future work on this problem.
-Explicitly including the stress tensor as an unknown and the constitutive relation as an equation to be solved opens up several possibilities for modifying the physics.
+Including the stress tensor as an unknown and the constitutive relation as an equation to be solved opens up several possibilities for modifying the physics.
 Since we do not need to explicitly solve for the stress tensor in terms of the strain rate tensor, we can easily implement composite flow laws like the Goldsby-Kohlstedt law.
 We could also add a term containing the time derivative of the stress tensor to the constitutive relation to implement Maxwell viscoelasticity.
 Both of these extensions have historically been difficult to achieve with conventional approaches to glacier flow modeling.
-Finally, the solvability of the dual problem in the limit of zero ice thickness can expand the scope of glaciological data assimilation.
+Second, the solvability of the dual problem in the limit of zero ice thickness can expand the scope of glaciological data assimilation.
 For example, it may become possible to assimilate the entire time series of altimetry measurements from ICESat-2 into flow models in a way that constraints not just the elevation of grounded ice, but what areas are free of ice.
+Finally, on the practical side, we used a grab bag of ad hoc strategies to compute a solution of the dual problem for this paper.
+Each strategy was effective on some test cases but not others.
+More work remains to be done from the applied math side on optimal solution algorithms for these types of problems.
 
 
 % ------------------

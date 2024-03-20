@@ -160,12 +160,17 @@ Weertman sliding has $m = n$, while perfectly plastic sliding has $m = \infty$.
 Recent research suggests alternative forms that transition between Weertman-type sliding at low speeds and perfectly plastic sliding at higher speeds \citep{minchew2020toward}.
 For illustrative purposes equation \eqref{eq:sliding-law} is sufficient, and we will describe how to incorporate alternatives in the discussion.
 
-Finally, the thickness evolves in time according to the following depth-averaged mass conservation equation:
+Finally, we need to supply a set of boundary conditions for the problem to be well-posed.
+Along the part of the boundary where ice is flowing into the domain, we assume that the ice velocity is known from observations; this is a Dirichlet boundary condition.
+At the glacier terminus, which we will denote by $\Gamma$, the membrane stresses at the cliff face are balanced by pressures from any proglacial water body.
+This is a Neumann boundary condition:
 \begin{equation}
-    \frac{\partial h}{\partial t} + \nabla \cdot hu = \dot a - \dot m,
-    \label{eq:conservation-mass}
+    -hM\cdot\nu = \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu,
+    \label{eq:terminus-bc}
 \end{equation}
-where $\dot a$ is the rate of ice accumulation and $\dot m$ of melting or ablation.
+where $h_W$ is the water depth and $\nu$ is the unit outward-pointing normal vector to the terminus.
+
+We can then combine equations \eqref{eq:membrane-stress-conservation}-\eqref{eq:sliding-law} and the boundary condition \eqref{eq:terminus-bc} to arrive at a second-order, nonlinear elliptic system of differential equations for $u$.
 
 For modelling a floating ice shelf, the friction term in \eqref{eq:membrane-stress-conservation} is zero.
 Moreover, assuming the ice is in hydrostatic equilibrium allows us to write the surface elevation in terms of the thickness:
@@ -185,17 +190,13 @@ This results in a free boundary problem where ice goes afloat once the condition
 The boundary separating grounded from floating ice is known as the grounding line $x_g$.
 The possibility of a marine ice sheet instability that could dramatically increase the rate of discharge of ice into the ocean has led to a substantial amount of research into grounding line dynamics \citep{schoof2007mis, durand2009mis, favier2012mis}.
 
-Finally, we need to supply a set of boundary conditions for the problem to be well-posed.
-Along the part of the boundary where ice is flowing into the domain, we assume that the ice velocity is known from observations; this is a Dirichlet boundary condition.
-At the glacier terminus, which we will denote by $\Gamma$, the membrane stresses at the cliff face are balanced by pressures from any proglacial water body.
-This is a Neumann boundary condition:
+To complete our description of the dynamics, the thickness evolves in time according to the following depth-averaged mass conservation equation:
 \begin{equation}
-    -hM\cdot\nu = \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu,
-    \label{eq:terminus-bc}
+    \frac{\partial h}{\partial t} + \nabla \cdot hu = \dot a - \dot m,
+    \label{eq:conservation-mass}
 \end{equation}
-where $h_W$ is the water depth and $\nu$ is the unit outward-pointing normal vector to the terminus.
-
-We can then combine equations \eqref{eq:membrane-stress-conservation}-\eqref{eq:sliding-law} to arrive at a second-order, nonlinear system of differential equations for $u$.
+where $\dot a$ is the rate of ice accumulation and $\dot m$ of melting or ablation.
+We assume that the ice thickness and velocity along the inflow boundary are known.
 
 
 % --------------------------------
@@ -255,7 +256,7 @@ On the other hand, this approach can feel like pulling a rabbit out of a hat; it
 This level requires some knowledge of general convex duality theory.
 We assume that few glaciologists will be interested in this level of detail and refer instead to sections 9.7 and 9.8 of \citet{attouch2014variational}.
 
-Equations \eqref{eq:membrane-stress-conservation}-\eqref{eq:sliding-law} and \eqref{eq:terminus-bc} can be combined into a second-order differential equation for the velocity $u$.
+Equations \eqref{eq:membrane-stress-conservation}-\eqref{eq:terminus-bc} can be combined into a second-order differential equation for the velocity $u$.
 Solving this differential equation is equivalent to finding a minimizer of the functional $J$ defined in equation \eqref{eq:ssa-primal-action}.
 In deriving the differential equation, we used the constitutive relation and the sliding law (equations \eqref{eq:constitutive-relation} and \eqref{eq:sliding-law}) to eliminate the membrane stress $M$ and basal stress $\tau$.
 We could instead \textbf{keep these additional equations and unknowns.}

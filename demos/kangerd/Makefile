@@ -5,7 +5,7 @@ kangerdlugssuaq-year5.h5: simulate.py kangerdlugssuaq-year1.h5
 	python simulate.py \
 		--input kangerdlugssuaq-year1.h5 \
 		--final-time 4.0 \
-		--timesteps-per-year 86 \
+		--timesteps-per-year 192 \
 		--calving \
 		--melt-rate 30e3 \
 		--mask-smoothing-length 1e3 \

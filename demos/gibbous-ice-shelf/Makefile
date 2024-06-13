@@ -1,4 +1,4 @@
-steady-state.pdf calved-thickness.pdf volumes.pdf &: calving.h5 make_plots.py
+gibbous.pdf volumes.pdf residuals.pdf &: calving.h5 residuals.json make_plots.py
 	python make_plots.py --calving-freq 24.0
 
 calving.h5: steady-state-fine.h5 gibbous.py
@@ -6,6 +6,9 @@ calving.h5: steady-state-fine.h5 gibbous.py
 
 steady-state-fine.h5: steady-state-coarse.h5 gibbous.py
 	python gibbous.py --resolution 2e3 --final-time 400.0 --num-steps 400 --input $< --output $@
+
+residuals.json: steady-state-coarse.h5 primal_dual_calving.py
+	python primal_dual_calving.py
 
 steady-state-coarse.h5: gibbous.py
 	python gibbous.py --resolution 5e3 --final-time 400.0 --num-steps 200 --output $@

@@ -1,9 +1,6 @@
 import argparse
-import subprocess
 import numpy as np
-from numpy import pi as π
 import tqdm
-import pygmsh
 import firedrake
 from firedrake import (
     inner,
@@ -17,6 +14,7 @@ from firedrake import (
 import irksome
 from icepack2 import model
 from icepack2.constants import glen_flow_law as n
+import gibbous_inputs
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--input")
@@ -31,60 +29,8 @@ args = parser.parse_args()
 R = 200e3
 δx = args.resolution
 
-geometry = pygmsh.built_in.Geometry()
-
-x1 = geometry.add_point([-R, 0, 0], lcar=δx)
-x2 = geometry.add_point([+R, 0, 0], lcar=δx)
-
-center1 = geometry.add_point([0, 0, 0], lcar=δx)
-center2 = geometry.add_point([0, -4 * R, 0], lcar=δx)
-
-arcs = [
-    geometry.add_circle_arc(x1, center1, x2),
-    geometry.add_circle_arc(x2, center2, x1),
-]
-
-line_loop = geometry.add_line_loop(arcs)
-plane_surface = geometry.add_plane_surface(line_loop)
-
-physical_lines = [geometry.add_physical(arc) for arc in arcs]
-physical_surface = geometry.add_physical(plane_surface)
-
-with open("ice-shelf.geo", "w") as geo_file:
-    geo_file.write(geometry.get_code())
-
-command = "gmsh -2 -format msh2 -v 0 -o ice-shelf.msh ice-shelf.geo"
-subprocess.run(command.split())
-
-mesh = firedrake.Mesh("ice-shelf.msh")
-
-# Generate the initial data
-inlet_angles = π * np.array([-3 / 4, -1 / 2, -1 / 3, -1 / 6])
-inlet_widths = π * np.array([1 / 8, 1 / 12, 1 / 24, 1 / 12])
-
-x = firedrake.SpatialCoordinate(mesh)
-
-u_in = 300
-h_in = 350
-hb = 100
-dh, du = 400, 250
-
-hs, us = [], []
-for θ, ϕ in zip(inlet_angles, inlet_widths):
-    x0 = R * firedrake.as_vector((np.cos(θ), np.sin(θ)))
-    v = -firedrake.as_vector((np.cos(θ), np.sin(θ)))
-    L = inner(x - x0, v)
-    W = x - x0 - L * v
-    Rn = 2 * ϕ / π * R
-    q = firedrake.max_value(1 - (W / Rn) ** 2, 0)
-    hs.append(hb + q * ((h_in - hb) - dh * L / R))
-    us.append(firedrake.exp(-4 * (W / R) ** 2) * (u_in + du * L / R) * v)
-
-h_expr = firedrake.Constant(hb)
-for h in hs:
-    h_expr = firedrake.max_value(h, h_expr)
-
-u_expr = sum(us)
+mesh = gibbous_inputs.make_mesh(R, δx)
+h_expr, u_expr = gibbous_inputs.make_initial_data(mesh, R)
 
 # Create some function spaces and some fields
 cg = firedrake.FiniteElement("CG", "triangle", 1)
@@ -95,8 +41,8 @@ V = firedrake.VectorFunctionSpace(mesh, cg)
 Σ = firedrake.TensorFunctionSpace(mesh, dg0, symmetry=True)
 Z = V * Σ
 
-h0 = firedrake.interpolate(h_expr, Q)
-u0 = firedrake.interpolate(u_expr, V)
+h0 = firedrake.Function(Q).interpolate(h_expr)
+u0 = firedrake.Function(V).interpolate(u_expr)
 
 h = h0.copy(deepcopy=True)
 z = firedrake.Function(Z)
@@ -218,6 +164,7 @@ prognostic_solver = irksome.TimeStepper(
 
 # Set up a calving mask
 R = firedrake.Constant(60e3)
+x = firedrake.SpatialCoordinate(mesh)
 y = firedrake.Constant((0.0, R))
 mask = firedrake.conditional(inner(x - y, x - y) < R**2, 0.0, 1.0)
 

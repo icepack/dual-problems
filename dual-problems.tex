@@ -242,15 +242,16 @@ On the other hand, if we are given a PDE, it may or may not have an action funct
 In other words, being the Euler-Lagrange equations for some action functional is a special property of only a restricted class of PDEs.
 There is no rote procedure to determine what the action functional might be, but in attempting to construct one, the main mathematical hurdle to overcome is computing the anti-derivatives of certain terms in the differential equation.
 
-The constitutive relation \eqref{eq:constitutive-relation} for $M$ can be expressed as the derivative of a certain scalar quantity:
+The constitutive relation \eqref{eq:constitutive-relation} for $M$ can be expressed as the derivative of a certain scalar quantity.
+In index notation,
 \begin{equation}
-    M = \frac{d}{d\dot\varepsilon}\left(\frac{2n}{n + 1}A^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr C}^{\frac{1}{n} + 1}\right)
+    M_{ij} = \frac{\partial}{\partial\dot\varepsilon_{ij}}\left(\frac{2n}{n + 1}A^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr C}^{\frac{1}{n} + 1}\right)
     \label{eq:M-anti-derivative}
 \end{equation}
 if we think of the strain rate tensor as an independent variable and briefly forget that it is the symmetrized velocity gradient.
 Likewise, for the sliding relation \eqref{eq:sliding-law}, we can observe that
 \begin{equation}
-    \tau = -\frac{d}{du}\left(\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\right).
+    \tau_i = -\frac{\partial}{\partial u_i}\left(\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\right).
     \label{eq:tau-anti-derivative}
 \end{equation}
 Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative}, one can show that the SSA momentum balance are the Euler-Lagrange equations for the following action functional \citep{dukowicz2010consistent}:
@@ -428,7 +429,11 @@ The domain consists of the intersection of two circles of different radii chosen
 We first run a spin-up of the system to steady state using the coupled mass and momentum balance equations with both the primal and dual forms.
 We check that the velocity obtained by solving the dual form is within discretization error of the velocity obtained with the primal form, which offers an additional degree of verification that we are solving the equations right.
 We additionally evaluate the total wall clock time to run this experiment using both the primal and dual form.
-We expect that the dual form is slower because it has more unknowns: 3 additional degrees of freedom per triangle for the independent components of the membrane stress tensor.
+The primal problem using $CG(1)$ elements for the velocity has two unknowns for each vertex of the mesh.
+The dual problem using $CG(1) \times DG(0)$ elements for the velocity and stress has an additional three unknowns per triangle.
+The Euler formula (\#vertices - \#edges + \#triangles $\approx$ 2) implies that there are approximately twice as many triangles as there are vertices.
+Consequently there are about 4x as many degrees of freedom when solving the dual problem as there are for the primal problem.
+Assuming naively that the time to solution scales linearly with the number of unknowns, we would then expect that solving the dual problem is 4x as expensive as solving the primal problem.
 
 As a third and final phase of this experiment, we run the same simulation, but every 24 years we set the ice thickness to 0 in a prescribed region near the terminus.
 This forcing mimics the effect of a large iceberg calving event.
@@ -568,9 +573,10 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
 
 \begin{figure}[h]
     \begin{center}
-        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/steady-state.pdf}
+        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/gibbous.pdf}
     \end{center}
-    \caption{The thickness, velocity, and magnitude of the membrane stress tensor in steady state.}
+    \caption{The thickness (a), velocity (b), and magnitude of the membrane stress tensor (c) in steady state, and the thickness (d), magnitude of the velocity change (e), and magnitude of the stress change (f) immediately after the calving event.
+    We remove a semi-circular segment from the end of the shelf with a prescribed center and radius.}
     \label{fig:gibbous}
 \end{figure}
 
@@ -584,35 +590,37 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
     \label{fig:gibbous-calving-volumes}
 \end{figure}
 
-\begin{figure}[h]
-    \begin{center}
-        \includegraphics[width=0.85\linewidth]{demos/gibbous-ice-shelf/calved-thickness.pdf}
-    \end{center}
-    \caption{The thickness of the ice shelf immediately after the calving event.
-    We remove a semi-circular segment from the end of the shelf with a prescribed center and radius.
-    The nonlinear solver for the velocity and membrane stress still converges with this thickness input.}
-    \label{fig:gibbous-calving-thickness}
-\end{figure}
-
 For the spin-up phase of the experiment, we did an initial run for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
 We then projected these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
-The results are shown in figure \ref{fig:gibbous} and are identical to those obtained from the primal form of the problem up to discretization error.
-\textcolor{red}{Talk about the benchmark.}
+The results are shown in figure \ref{fig:gibbous}(a)-(c) and are identical to those obtained from the primal form of the problem up to discretization error.
 
-In the calving phase of the experiment, our solver for the dual problem still performed gracefully in ice-free areas.
+When we used the spin-up phase of the experiment as a benchmark to measure the performance of the dual and primal solvers, we found that the dual problem required between 2.5x and 2.7x as much time.
+These results were consistent across different mesh resolutions and when run several times on multiple machines.
+Since the dual problem has 4x as many unknowns, the added cost that we found experimentally is less than what we would expect if we naively assumed that cost is proportional to the number of degrees of freedom.
+
+In the calving phase of the experiment, our solver for the dual problem still worked in ice-free areas.
 This feature offers the possibility of implementing physically-based calving models in a simple way.
 Figure \ref{fig:gibbous-calving-volumes} shows the evolution of the volume of ice in the shelf over the two spin-up phases and the calving phase.
 The 24-year recurrence interval is not enough time for the ice to advance back to the original edge of the computational domain.
 Using a longer interval would allow the calving terminus to advance back to its original position.
-Figure \ref{fig:gibbous-calving-thickness} shows the thickness of the ice shelf immediately after the calving event.
+Figure \ref{fig:gibbous}(d) shows the thickness of the ice shelf immediately after the calving event (e) and (f) show the magnitude of the change in speed and stress respectively.
+In particular, the stress field shows a discontinuity at the new calving front as expected.
 
-The number of nonlinear solver iterations to recompute the ice velocity after the calving event is much greater than after a normal timestep.
+\begin{figure}[h]
+    \begin{center}
+        \includegraphics[width=0.75\linewidth]{demos/gibbous-ice-shelf/residuals.pdf}
+    \end{center}
+    \caption{The number of Newton iterations to compute the ice velocity at each step of the calving phase of the experiment.
+    Calving occurs every 24 years.}
+    \label{fig:gibbous-residuals}
+\end{figure}
+
+Figure \ref{fig:gibbous-residuals} shows the number of Newton iterations needed to compute the ice velocity at each timestep.
+The number of iterations after a calving event is much greater than after a normal timestep.
 This behavior is to be expected if we run the solver to convergence because it introduces a type of shock into the system.
 As the system relaxes back, the number of iterations decreases again.
-Moreover, we had to do some manual adjustment of the convergence tolerances.
 Several different strategies can alleviate the need for manual adjustment (see the appendix).
-\textcolor{red}{Give a plot showing the number of Newton solves.
-Do a comparison to the primal form with e.g. a small minimum thickness.}
+\textcolor{red}{Do a comparison to the primal form with e.g. a small minimum thickness.}
 
 \subsection{Larsen C Ice Shelf}
 
@@ -709,6 +717,9 @@ The dual formulation does come with several disadvantages.
 The number of unknowns in the dual formulation is greater than in the primal form, thus putting more pressure on computer memory.
 The resulting linear systems are indefinite rather than positive-definite.
 Finally, since the dual form is a mixed problem, it is possible to make bad choices of finite element basis, whereas almost any basis will work for the primal form.
+We did find, however, that the increased cost of solving the dual problem was not as high as one might expect just based on counting the number of degrees of freedom.
+We used a fairly naive solution approach (direct factorization) for the linear system in each step of Newton's method in the benchmark for both the primal and dual forms.
+There may be significant room for improvement on these benchmarks through the use of more sophisticated techniques such as Schur complement preconditioners that use static condensation of the stress degrees of freedom \citep{boffi2013mixed}.
 
 There are several promising avenues of future work on this problem.
 Including the stress tensor as an unknown and the constitutive relation as an equation to be solved opens up several possibilities for modifying the physics.

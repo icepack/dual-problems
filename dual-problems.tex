@@ -54,8 +54,8 @@
     Several software packages for glacier flow modeling use this action principle in the design of numerical solution procedures.
     We derive here an equivalent \emph{dual} action principle for the shallow stream approximation and implement this model using the finite element method.
     The key feature of the dual action is that the flow law and friction law are both inverted, which changes the character of the nonlinearities.
-    This altered character makes it possible to implement numerical solvers for the dual form that work well with a much wider range of input data than solvers for the primal form can usually cope with.
-    In particular, the momentum balance equation remains solvable \emph{even when the ice thickness or strain rate are exactly equal to zero}.
+    This altered character makes it possible to implement numerical solvers for the dual form that work \emph{even when the ice thickness or strain rate are exactly equal to zero}.
+    Solvers for the primal form typically fail on such input data and require regularization of the problem.
     This robustness makes it possible to implement iceberg calving in a strikingly simple way: the modeler sets the ice thickness to zero in the desired area.
     We provide several demonstrations and a reference implementation.
 }
@@ -66,7 +66,7 @@
 \section{Introduction}
 
 On space and time scales greater than 100m and 1 day, glaciers flow like a viscous, incompressible fluid with a power-law rheology \citep{greve2009dynamics}.
-Ice flow is slow enough that the inertial terms in the Navier-Stokes equations can be neglected, i.e. the flow occurs at very low Reynolds number.
+Ice flow is slow enough that the fluid inertia is negligible compared to viscous and gravitational forces, i.e. the flow occurs at very low Reynolds and Froude number.
 There are multiple equivalent ways of expressing the momentum balance equations: a conservation law, a variational form, a partial differential equation.
 Each of these forms is best suited to a different type of numerical method.
 The momentum balance equation for low-Reynolds number viscous fluid flow can also be derived as the optimality conditions for the velocity to be the critical point of a certain \emph{action functional} \citep{dukowicz2010consistent}.
@@ -77,10 +77,10 @@ The existence of an action principle is a special property of a very restricted 
 Action principles are not just of theoretical interest -- we can use them to design faster, more robust numerical solvers.
 First, a convex action principle implies that the second derivative is symmetric and positive-definite.
 These properties guarantee convergence for Newton-type algorithms.
-They also mean that we can use specialized methods, such as Cholesky factorization or the conjugate gradient method, for solving the resulting linear systems of equations \citep{nocedal2006numerical}.
+They also mean that we can use specialized methods, such as Cholesky factorization or the conjugate gradient method, to solve the linear systems of equations for the search direction in each step \citep{nocedal2006numerical}.
 These methods are not applicable to more general classes of linear systems.
 Second, the action principle offers a way to measure how well an approximate solution matches the true solution and it is distinct from, say, the square norm of the residual.
-The theory of convex optimization then provides us with a way to measure how close we are to convergence without having to know what the true solution is.
+The theory of convex optimization then provides us with a way to measure how close we are to convergence using only the current solution guess and search direction by evaluating the \emph{Newton decrement}.
 In \citet{shapero2021icepack}, we showed how to use this theory to design physics-based convergence criteria.
 
 This work follows in the footsteps of \citet{dukowicz2010consistent} in studying action principles for glacier flow.
@@ -92,6 +92,20 @@ This regularization makes the momentum balance problem solvable, but it remains 
 We have implemented solvers for this dual form that still converge even when the thickness and strain rate are zero.
 As a consequence, \textbf{we were able to simulate iceberg calving by setting the ice thickness to zero} in part of the glacier.
 We illustrate these advantages in the final section with a numerical implementation and several demonstrations.
+
+The main advantage of the approach we propose here is that it offers a new way to handle ice-free regions.
+Several strategies already exist in the literature on numerical ice flow modeling for handling ice-free regions.
+One can set a minimum ice thickness, which regularizes away the problem but introduces mass balance errors.
+The BISICLES model uses a finite volume discretization, special handling of the terminus in assembling the stiffness matrix, a regularized Picard-type linearization, and an artificial friction in ice-free areas \citep{cornford2013adaptive}.
+The Ice Sheet and Sea-Level System Model (ISSM) uses the level set method \citep{bondzio2016modelling, osher1988fronts}.
+This approach introduces an additional scalar field which evolves according to a certain differential equation.
+The zero contour of this scalar field represents the glacier terminus.
+One can then ``turn off'' the physics in the ice-free region where the momentum balance equation ceases to be well-posed.
+Finally, the Elmer/Ice model has used both (1) direct remeshing of the 3D geometry \citep{todd2018full}, so ice-free areas are not included in the computational domain at all, and (2) coupling to a discrete element model \citep{benn2017melt}.
+These approaches are effective but come with their own drawbacks and implementation challenges.
+For example, using the level-set method requires solving a challenging, nonlinear hyperbolic problem, the eikonal equation.
+The remeshing approach taken in Elmer/Ice, on the other hand, requires projecting the solution between different computational meshes.
+The dual form that we describe here has its own challenges but we claim that these are easier to overcome than those of existing approaches.
 
 In the following, we will assume familiarity with (1) the partial differential equations describing glacier flow, (2) variational calculus and the derivation of the Euler-Lagrange equations of a generic functional, and (3) convex analysis and convex duality theory.
 For background reading, we refer the reader to \citet{greve2009dynamics} for glacier dynamics, \citet{weinstock1974calculus} for variational calculus, and \citet{boyd2004convex} for convex optimization.
@@ -105,20 +119,32 @@ For background reading, we refer the reader to \citet{greve2009dynamics} for gla
 
 Here we review the differential equations that are commonly used to describe glacier flow.
 In the next section, we will show how the momentum balance equation has a minimization principle.
+We will focus exclusively on the \emph{shallow stream approximation} (SSA), which is commonly applied to model fast-flowing outlet glaciers and ice streams.
+The SSA model is derived by (1) expanding the Stokes equations in the aspect ratio and taking only the lowest-order terms, and (2) depth-averaging the equations, which assumes that the horizontal velocity varies much more in the longitudinal directions than with depth \citep{greve2009dynamics}.
 
-The most common starting point for modeling glacier momentum balance is the Stokes equations with a power-law rheology, commonly known as Glen's law \citep{glen1958law, greve2009dynamics}.
-Numerically solving the Stokes equations in 3D has a high computational cost.
-For this reason, it is common to simplify these equations using the fact that most glaciers have a small ratio of thickness to horizontal extent.
-One can then eliminate the pressure and vertical velocity from the Stokes equations by taking only the 0th-order term in an asymptotic expansion of the Stokes equations in the aspect ratio.
-The resulting equation set is usually called the \emph{first-order} or \emph{Blatter-Pattyn} equation \citep{greve2009dynamics}.
+\begin{table}[h]
+    \begin{tabular}{cccc}
+        \cline{1-4}
+        name & symbol & units & rank \\
+        \cline{1-4}
+        velocity & $u$ & meters years${}^{-1}$ & 1 \\
+        strain rate & $\dot\varepsilon$ & years${}^{-1}$ & 2 \\
+        viscosity tensor & $\mathscr{C}$ & & 4 \\
+        compliance tensor & $\mathscr{A}$ & & 4 \\
+        membrane stress & $M$ & megapascals & 2 \\
+        basal stress & $\tau$ & megapascals & 1 \\
+        ice thickness & $h$ & meters &  \\
+        surface elevation & $s$ & meters &  \\
+        flow law exponent & $n$ & &  \\
+        sliding law exponent & $m$ & &  \\
+        fluidity coefficient & $A$ & megapascals${}^{-n}$ years${}^{-1}$ &  \\
+        sliding coefficient & $K$ & megapascals${}^{-m}$ meters years${}^{-1}$ &
+    \end{tabular}
+    \caption{Variable, symbol, physical units, and tensor rank -- 1 for vectors, 2 for matrices, etc.}
+    \label{tab:symbols}
+\end{table}
 
-In certain flow regimes, some components of the strain rate tensor become neglible and this enables further simplifications of the first-order equations.
-Here we focus on the \emph{shallow stream/shelf approximation} (SSA), which is commonly applied to model fast-flowing outlet glaciers and ice streams \citep{greve2009dynamics}.
-The SSA assumes that the vertical variation of the horizontal velocity is negligible, i.e. the velocity field is approximately a plug flow.
-In other words, the $x-z$ components of the strain rate tensor are much smaller than the $x-x$, $x-y$, and $y-y$ components.
-With this approximation, we can depth-average the first-order equations and the result is the SSA.
 The equations of motion are solved in a two-dimensional domain $\Omega$.
-
 The main unknown to be solved for in the SSA is the depth-averaged ice velocity $u$.
 Some important intermediate quantities are the basal shear stress $\tau$ and the \emph{membrane stress} tensor $M$, a rank-2 tensor with units of stress that results from applying the low-aspect ratio assumption to the full 3D deviatoric stress tensor.
 The inputs to the problem include the thickness $h$, surface elevation $s$, and fluidity factor $A$ in Glen's flow law.
@@ -143,12 +169,13 @@ Moreover, we define the norm of a rank-2 tensor with respect to $\mathscr{C}$ as
 \begin{equation}
     |\dot\varepsilon|_{\mathscr{C}}^2 = \dot\varepsilon : \mathscr{C}\dot\varepsilon.
 \end{equation}
+Alternatively, in index notation, the square norm is $|\dot\varepsilon|_{\mathscr C}^2 = \mathscr{C}_{ijkl}\dot\varepsilon_{ij}\dot\varepsilon_{kl}$.
 With these notational conveniences in hand, the Glen flow law states that the membrane stress and strain rate are related by a power law:
 \begin{equation}
     M = 2A^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr C}^{\frac{1}{n} - 1}\mathscr{C}\dot\varepsilon
     \label{eq:constitutive-relation}
 \end{equation}
-where $A$ is the fluidity coefficient and $n \approx 3$ is the Glen flow law exponent.
+where $A$ is the depth-averaged fluidity coefficient and $n \approx 3$ is the Glen flow law exponent.
 
 Next, we need to provide some kind of sliding relation.
 We will assume a generalized power law with some exponent $m$, i.e.
@@ -203,7 +230,7 @@ We assume that the ice thickness and velocity along the inflow boundary are know
 \subsection{Primal action principles}
 \label{sec:primal-action-principles}
 
-The main idea behind \emph{action} or \emph{minimization} principles is that some partial differential equations really express the fact that their solutions are extrema of a given \emph{action functional}.
+The main idea behind \emph{action} or \emph{minimization} principles is that some partial differential equations (PDE) really express the fact that their solutions are extrema of a given \emph{action functional}.
 The momentum balance equation of glacier flow is one such PDE.
 Many publications in the glacier flow modeling literature have explored the advantages of using action principles to describe the momentum balance \citep{bassis2010hamilton, dukowicz2010consistent, brinkerhoff2013data, shapero2021icepack}.
 Here we briefly review these concepts as they pertain to the SSA momentum balance.
@@ -211,9 +238,9 @@ Here we briefly review these concepts as they pertain to the SSA momentum balanc
 Given a particular action functional, the PDE that expresses the condition that a field is an extremum can be calculated mechanically in terms of the integrand.
 This PDE is called the \emph{Euler-Lagrange} equation for the functional.
 We will not repeat it here but see \citet{weinstock1974calculus}.
-On the other hand, given an arbitrary PDE, there is no rote procedure that will determine if it is an Euler-Lagrange equation and what the corresonding functional should be.
-The dichotomy is akin to the fact that differentiation can always be carried out symbolically while computing anti-derivatives cannot.
-The main mathematical hurdle to overcome in determining what the action functional is for a particular problem is computing the anti-derivatives of certain terms in the differential equation.
+On the other hand, if we are given a PDE, it may or may not have an action functional at all.
+In other words, being the Euler-Lagrange equations for some action functional is a special property of only a restricted class of PDEs.
+There is no rote procedure to determine what the action functional might be, but in attempting to construct one, the main mathematical hurdle to overcome is computing the anti-derivatives of certain terms in the differential equation.
 
 The constitutive relation \eqref{eq:constitutive-relation} for $M$ can be expressed as the derivative of a certain scalar quantity:
 \begin{equation}
@@ -226,7 +253,7 @@ Likewise, for the sliding relation \eqref{eq:sliding-law}, we can observe that
     \tau = -\frac{d}{du}\left(\frac{m}{m + 1}C|u|^{\frac{1}{m} + 1}\right).
     \label{eq:tau-anti-derivative}
 \end{equation}
-Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative}, we can show that the SSA momentum balance are the Euler-Lagrange equations for the following action functional:
+Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative}, one can show that the SSA momentum balance are the Euler-Lagrange equations for the following action functional \citep{dukowicz2010consistent}:
 \begin{align}
     & J(u) = \nonumber\\
     & \qquad\int_\Omega\Bigg\{\frac{2n}{n + 1}hA^{-\frac{1}{n}}|\dot\varepsilon|_{\mathscr{C}}^{\frac{1}{n} + 1} + \frac{m}{m + 1}C|u|^{\frac{1}{m} + 1} \nonumber\\
@@ -259,6 +286,7 @@ We assume that few glaciologists will be interested in this level of detail and 
 Equations \eqref{eq:membrane-stress-conservation}-\eqref{eq:terminus-bc} can be combined into a second-order differential equation for the velocity $u$.
 Solving this differential equation is equivalent to finding a minimizer of the functional $J$ defined in equation \eqref{eq:ssa-primal-action}.
 In deriving the differential equation, we used the constitutive relation and the sliding law (equations \eqref{eq:constitutive-relation} and \eqref{eq:sliding-law}) to eliminate the membrane stress $M$ and basal stress $\tau$.
+
 We could instead \textbf{keep these additional equations and unknowns.}
 Instead of solving a second-order equation for $u$, we would then have an equivalent first-order system of equations for $u$, $M$, and $\tau$.
 One way to motivate the dual problem is to ask: \textbf{is there an optimization problem that is equivalent to this first-order system?}
@@ -326,100 +354,194 @@ In the dual form, however, the nonlinearity consists of the stress tensor raised
 Around zero stress, the second derivative of the action with respect to the stress is zero instead of infinity; see figure \ref{fig:primal-vs-dual}.
 
 
-
 % ----------------------
 \section{Demonstrations}
 
+Here we will describe several computational experiments for evaluating the dual form of SSA and our implementation of it.
+First, we will conduct a verification exercise in order to make sure that we correctly implemented the dual form of SSA.
+This demonstration is to give some assurance that we are solving the equations right.
+Next, we will conduct two numerical exercises to compare how well the dual form works compared to the primal form on problems in simple geometries.
+Finally, we will conduct two more experiments to show off the use of the dual form on realistic glacier geometries.
+
+
+\subsection{Verification on solvable test cases}
+
+The verification exercises we use are taken from those used to test the implementation of the primal form of SSA in the icepack package\citep{shapero2021icepack}.
+We compare numerical results on a sequence of grids to exactly solvable instances of SSA and check that the results converge with the expected order of accuracy.
+Finite element theory predicts that the $L^2$-norm difference between the exact solution and the solutions obtained using $CG(k)$ finite elements is $\mathscr{O}(\delta x^{p + 1})$ where $\delta x$ is the mesh spacing.
+If the slope in a log-log fit of error against mesh spacing deviates significantly from $p + 1$, this would indicate some mis-specification of the problem or bug in the solver.
+
+The first test is to use the exact solution for the velocity of a floating ice shelf with thickness
+\begin{equation}
+    h = h_0 - \delta h \cdot x / L_x
+\end{equation}
+in a domain of length $L_x$ = 20km.
+With a constant value of the fluidity coefficient $A$, the velocity in the $x$ direction is
+\begin{equation}
+    u_x = u_0 + L_x A \left(\frac{\varrho g h_0}{4}\right)^n\left(1 - \left(1 - \frac{\delta h \cdot x}{h_0\cdot L_x}\right)^{n + 1}\right)
+\end{equation}
+where $\varrho = \rho_I(1 - \rho_I/\rho_W)$.
+We use a 2D domain in order to make sure that the numerical solution, like the exact solution, has no variation in the $y$ direction.
+
+The second test case uses the same geometry but adds basal friction and assumes the ice thickness is above flotation.
+Solving the resulting boundary value problem analytically in the presence of friction is now much more difficult.
+Instead, we used the method of manufactured solutions -- we picked the ice velocity, thickness, and surface elevation, and generated a friction coefficient that would make this velocity an exact solution.
+To generate this friction coefficient we used the computer algebra system sympy \citep{sympy}.
+
+
+\subsection{Comparison with primal form on slab glacier}
+
+\begin{figure}[h]
+\centering
+    \includegraphics[width = 0.8\linewidth]{demos/slab/figures/marine_ice_sheet.pdf}
+    \caption{Setup for modelling a slab of ice on an inclined bed flowing into the ocean.
+    At $x = 0$ we enforce a thickness $h = 500\,\mathrm{m}$ in order to approach a parallel slab of ice far upstream of the grounding line. The dotted line is sea level.}
+    \label{fig:domain_parallel_slab}
+\end{figure}
+
+As a more challenging test in a flowline setting, we consider a slab of ice of constant thickness flowing down an inclined slope into the ocean, where it goes afloat at the grounding line (figure \ref{fig:domain_parallel_slab}).
+We compute steady states under this configuration using the primal and dual forms described above.
+We set the ice thickness at $x = 0$ to $h = 500\, \mathrm{m}$ and the bedrock angle to $\alpha = 1^\circ$. The bed is given by the expression
+\begin{align}
+    b(x) = 1500 - x\tan{\alpha}\,\mathrm{m}.
+\end{align}
+%
+For the material parameters, we set $n = 3$, $A = 10^{-24}\,\mathrm{Pa}^{-3}\,\mathrm{s}^{-1}$, $C = 10^{-6}\,\mathrm{Pa}\,\mathrm{m}^{-1/3}\mathrm{s}^{1/3}$.
+Instead of setting inflow boundary conditions at $x = 0$, we enforce a zero extensional stress condition $M = 0$.
+This condition allows the ice sheet to tend to the uniform thickness slab solution far upstream of the grounding line.
+For the uniform slab, the extensional stresses are equal to zero and the frictional stresses at the base of the ice sheet balance the gravitational forces.
+As a result, the horizontal velocity for the uniform thickness slab is given by
+\begin{align}\label{eq:u_slab}
+    u = \left(\frac{\rho_I g h \tan(\alpha)}{C}\right)^n.
+\end{align}
+A consequence of enforcing the slab solution at the left boundary is that, as we move upstream away from the grounding line, the strain rate tends to zero and one must regularise the primal formulation of the momentum balance equation.
+
+For this problem, we not only solve for the velocity $u$ or the velocity-stress pair $(u,M)$, but also for the thickness $h$ and the grounding line position $x_g$.
+We therefore complement the momentum balance equations with the mass balance equation \eqref{eq:conservation-mass} and the flotation condition \eqref{eq:flotation-condition}, effectively yielding a free boundary problem.
+
+
+\subsection{Comparison against primal form on gibbous ice shelf}
+
+The next comparison exercise uses the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}
+The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
+
+We first run a spin-up of the system to steady state using the coupled mass and momentum balance equations with both the primal and dual forms.
+We check that the velocity obtained by solving the dual form is within discretization error of the velocity obtained with the primal form, which offers an additional degree of verification that we are solving the equations right.
+We additionally evaluate the total wall clock time to run this experiment using both the primal and dual form.
+We expect that the dual form is slower because it has more unknowns: 3 additional degrees of freedom per triangle for the independent components of the membrane stress tensor.
+
+As a third and final phase of this experiment, we run the same simulation, but every 24 years we set the ice thickness to 0 in a prescribed region near the terminus.
+This forcing mimics the effect of a large iceberg calving event.
+Our prescribed evolution of the terminus is not a realistic representation of how calving works.
+Instead, we aim only to stress test the solver in order to see if it can handle regions of zero thickness.
+We have never succeeded at implementing a solver for the primal form of the problem that works well when the ice thickness is zero.
+
+
+\subsection{Demonstration on calving of Larsen C Ice Shelf}
+
+To test the dual form of SSA on a realistic problem, we will simulate the evolution of the Larsen C Ice Shelf from a nominal start date of 2015 for 40 years, including the calving of Iceberg A-68 in 2017 \citep{larour2021physical}.
+This experiment uses the observed calving front positions from satellite imagery to set the terminus positions at the start of the simulating and after the calving event.
+The goal is not to implement a calving law as such.
+In all, the experiment proceeds in several steps:
+\begin{enumerate}
+    \item Estimate the fluidity field $A$ from remote sensing measurements of the thickness and velocity.
+        This step uses the primal form of the momentum balance equation from icepack.
+    \item Extrapolate the ice thickness and velocity onto a larger spatial domain, making the ice thickness 0 in ice-free areas.
+    \item Run the simulation using the mass and dual momentum balance from the start date of 2015 until the calving event in 2017.
+    \item Digitize the terminus position immediately after the calving event by hand and use the digitized terminus position to define an ice mask.
+    \item Using this mask, set the ice thickness to zero over the spatial extent of the calved area.
+    \item Run the simulation for 40 years after the calving event to see how the terminus advances again.
+\end{enumerate}
+
+
+\subsection{Demonstration on Kangerdlugssuaq Glacier}
+
+Our final test case is simulating Kangerdlugssuaq Glacier, a grounded outlet glacier on the east coast of Greenland.
+Kangerdlugssuaq is one of the top three contributors to the total discharge from Greenland \citep{enderlin2014improved, mouginot2019forty}.
+The purpose of this exercise is to demonstrate that we can simulate the evolution of a marine-terminating glacier, including the seasonal advance and retreat of the terminus in response to ocean-induced frontal ablation in summer, using the dual form.
+We do not aim to reproduce the exact calving history.
+
+The exercise proceeds in several steps, similar to our approach for Larsen C:
+\begin{enumerate}
+    \item Estimate the friction field (the coefficient $K$ in the sliding law $u|_{z = b} = -K|\tau_b|^{n - 1}\tau$) from remote sensing measurements of the ice thickness, surface elevation, and velocity.
+        This step uses the primal form of the momentum balance equation from icepack.
+    \item Extrapolate the thickness, surface elevation, velocity, and friction coefficient onto a large spatial domain that extends further down Kangerdlugssuaq Fjord.
+    \item Run the simulation using the mass and dual momentum balance equations for one year in order to propagate out any initial transients.
+        This stage uses only surface mass balance and thus permits the glacier to advance down the fjord.
+    \item Turn on a time-periodic ablation field near the terminus in order to represent the effects of summer melt and calving and ran the simulation for a further four years.
+        This ablation field forces the terminus to advance and retreat.
+\end{enumerate}
+
+To initialize the simulation, we use version 3 of the BedMachine Greenland data set for ice thickness and surface elevation \citep{morlighem2017bedmachine} and the MEaSUREs annual velocity mosaic from 2015-2016 \citep{joughin2010greenland} to infer the basal friction.
+To force the mass conservation equation \eqref{eq:conservation-mass}, we need to provide a surface mass balance (SMB) field $\dot a$ and a melt rate $\dot m$.
+
+We use a surface mass balance field that varies linearly with elevation:
+\begin{equation}
+    \dot a \approx a_0 + \frac{\delta a}{\delta s}\cdot s
+\end{equation}
+where $a_0$ is the SMB at sea level and $\delta a/\delta s$ is the SMB lapse rate.
+To fit the parameters $a_0$ and $\delta a/\delta s$, we used output from 2006-2021 of version 3.12 of the Mod\`ele Atmosph\'erique R\'egional (MAR) \citep{fettweis2020grsmbmip}.
+This regional climate model has been tested extensively for the polar regions and for Greenland.
+The fit had $r^2 = 0.91$, so a substantial fraction of the variance is explainable by surface elevation alone.
+
+To set the melt rate $\dot m$, we first create a smoothed ice mask $\mu$.
+The smoothed mask is required to be equal to 1 on the inflow boundary, 0 on the outflow boundary, and have 0 normal derivative along the side walls.
+We then compute $\mu$ as the minimizer of
+\begin{equation}
+    J(\mu) = \frac{1}{2}\int_\Omega\left((\mu - \mathbf{1}_{\{h > 0\}})^2 + \alpha^2|\nabla\mu|^2\right)dx
+\end{equation}
+where $\alpha$ is some smoothing length, and $\mathbf{1}_{\{h > 0\}}(x)$ is equal to 1 if $h(x) > 0$ and 0 if $h(x) = 0$.
+Here we choose $\alpha$ to be 1km, so the mask field rapidly approaches 1 within roughly one ice thickness of the terminus.
+The mask field $\mu$ is recalculated in every timestep.
+Finally, we set the melt rate at time $t$ as
+\begin{equation}
+    \dot m = m_0(1 - \mu)\min\{0, \cos(2\pi t)\}
+\end{equation}
+where $m_0$ is a maximum melt rate that we have to choose.
+
+The purpose of this exercise is to demonstrate that our solver for the dual form can simulate advance and retreat of a grounded tidewater glacier in response to melt forcing at the terminus.
+Again, our goal is not to validate a particular calving law.
+
+
+% ---------------
+\section{Results}
+
 We implemented a solver for the dual form of the SSA using the Firedrake package \citep{FiredrakeUserManual}.
-For more information on discretizing the dual form using finite elements, see Appendix \ref{app:discretization}, and for strategies to solve the resulting finite-dimensional optimization problem, see Appendix \ref{app:solution}.
-Here we will present the verification exercises that we used to evaluate the correctness of our implementation, as well as demonstrations of the new capabilities of the dual form compared to the primal form.
-
-Verification is the process of demonstrating that we have correctly specified the dual form of the shallow stream equations and that we can solve them accurately.
-A typical verification experiment would be to first find an analytical solution of the physics problem of interest and then calculate the misfit between the exact and numerical solutions as the mesh is refined.
-Finite element theory predicts that, as the mesh spacing $\delta x$ is decreased, the misfits decrease asymptotically as $\delta x^p$ for some exponent $p$ depending on the norm, the polynomial order of the basis, and the problem.
-We cannot actually evaluate the limit as $\delta x \to 0$.
-The best we can do is use a sequence of refined meshes and compute a log-log fit of the errors against the mesh spacing.
-If the slope in log-log space of the misfit-mesh spacing curve is close to the expected power $p$, then we have gained some confidence that we have implemented the physics model correctly.
-Note that we cannot prove definitively that the implementation is correct; we can only try to find the most rigorous tests we can that might reveal the presence of an error.
-% Except for that student of Andrew Appell who did exactly that...
-
-Comparing numerical results against analytically solvable test cases is vital for catching bugs in the code.
-Numerical methods do not always fail discretely, so these bugs can be more subtle than, say, the solver crashing.
-For example, a common mistake might be to evaluate the viscosity of ice as some constant times \texttt{epsilon ** (-2 / 3)} where \texttt{epsilon} is the absolute value of the strain rate.
-In Fortran and C, integer division gives integer results, so this expression would evaluate to \texttt{epsilon ** 0} which is equal to 1.
-(By contrast, in Python, integer division can give a floating point result.)
-The simulation would describe a linear viscous fluid flow, whereas glacier flow is a nonlinear shear-thinning fluid flow.
-The results would still look like a viscous fluid flow and thus might seem fine in the eyeball norm.
-Comparing them to an analytical solution, however, would at least reveal the presence of a problem.
-
-The verification experiments that we present below are all taken from those used to test the implementation of the primal form of the SSA in the icepack package \citep{shapero2021icepack}.
-The linear ice shelf and ice stream experiments are analytically solvable.
-The gibbous ice shelf test case is not analytically solvable.
-Instead, we take it on faith that the solvers in icepack are implemented correctly, and check that the dual form solver we present here reproduces the same results as icepack to within discretization error.
+For more information on discretizing the dual form using finite elements and for strategies to solve the resulting finite-dimensional optimization problem, see the appendix.
 
 
-\subsection{Linear ice shelf and ice stream} \label{sec:linear-ice-shelf}
+\subsection{Verification on solvable test cases} \label{sec:linear-ice-shelf}
 
 \begin{figure}[h]
     \begin{center}
         \includegraphics[width=0.75\linewidth]{demos/convergence-tests/results.pdf}
     \end{center}
-    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf (left) and ice stream (right) test cases.
-    Convergence rate obtained through a log-log fit of errors against mesh size.}
+    \caption{Relative $L^2$-norm errors for approximate solutions to the analytical ice shelf (left) and ice stream (right) test cases using our newly-developed solver for the dual form of SSA.
+    The points show the error values from each experiment, the lines show a log-log fit of the errors against mesh size.
+    The convergence rates were obtained from this log-log fit.}
     \label{fig:linear-glacier-convergence-rate}
 \end{figure}
 
-As a first check that we implemented the dual form of the SSA correctly, we used the exact solution for a floating ice shelf with thickness
-\begin{equation}
-    h = h_0 - \delta h \cdot x / L_x
-\end{equation}
-in a domain of length $L_x = 20$km.
-With a constant value of the fluidity coefficient, the velocity in the $x$ direction is
-\begin{equation}
-    u_x = u_0 + L_x A \left(\frac{\rho_I g h_0}{4}\right)^n\left(1 - \left(1 - \frac{\delta h \cdot x}{h_0\cdot L_x}\right)^{n + 1}\right).
-\end{equation}
-We used a 2D domain in order to make sure that the numerical solution, like the exact solution, has no variation in the $y$ direction.
-We tested meshes with between 16 and 256 cells to a side and we used both degree-1 and degree-2 finite elements for the velocity.
-The relative errors in the $L^2$ norm have the expected asymptotic convergence rates of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic; see figure \ref{fig:linear-glacier-convergence-rate}.
-
-Next, we performed an experiment on the same geometry and meshes but with basal friction and the ice thickness above flotation.
-Solving the resulting boundary value problem analytically in the presence of friction is now much more difficult.
-Instead, we used the method of manufactured solutions -- we picked the ice velocity, thickness, and surface elevation, and generated a friction coefficient that would make this velocity an exact solution.
-To generate this friction coefficient we used the computer algebra system sympy \citep{sympy}.
-The numerical solutions again converge with the expected accuracy of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic elements.
-See figure \ref{fig:linear-glacier-convergence-rate}.
+We tested meshes with between 16 and 256 cells to a side and we used both $CG(1) \times DG(0)$ and $CG(2) \times DG(1)$ finite element pairs for the velocity and membrane stress, where $CG$ and $DG$ denote respectively continuous and discontinuous Galerkin elements.
+The relative errors in the $L^2$ norm have the expected asymptotic convergence rates of $\mathscr{O}(\delta x^2)$ for linear velocity elements and $\mathscr{O}(\delta x^3)$ for quadratic in both the ice shelf and ice stream test cases; see figure \ref{fig:linear-glacier-convergence-rate}.
 
 While finite element theory can predict the asymptotic convergence rates, it does not immediately give estimates of what the constant prefactor should be except in the most trivial of linear problems.
 The constants can only be evaluated empirically.
 In particular, the theory predicts that quadratic elements converge faster asymptotically than linear elements, but it cannot tell us how many cells per side are necessary for each to achieve the same accuracy.
 Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution obtained with only 16 cells per side and quadratic elements is roughly as accurate as a solution with 256 cells per side and linear elements.
 
-\subsection{Slab of ice flowing into the ocean}
 
-\begin{figure}[h]
-\centering
-    \includegraphics[width = 0.8\linewidth]{demos/slab/figures/marine_ice_sheet.pdf}
-    \caption{Setup for modelling a slab of ice on an inclined bed flowing into the ocean. At $x = 0$ we enforce a thickness $h = 500\,\mathrm{m}$ in order to approach a parallel slab of ice far upstream of the grounding line. The dotted line represents the sea level.}
-    \label{fig:domain_parallel_slab}
-\end{figure}
+\subsection{Comparison with primal form on slab glacier}
 
-As a more challenging test in a flowline setting, we consider a slab of ice of constant thickness flowing down an inclined slope into the ocean, where it goes afloat at the grounding line, as illustrated in Figure \ref{fig:domain_parallel_slab}. We compute steady states under this configuration using the primal and dual methods described above. We set the ice thickness at $x = 0$ to $h = 500\, \mathrm{m}$ and the bedrock angle to $\alpha = 1^\circ$. The bed is given by the expression
-%
-\begin{align}
-    b(x) = 1500 - x\tan{\alpha},
-\end{align}
-%
-with units in meters. For the material parameters, we set $n = 3$, $A = 10^{-24}\,\mathrm{Pa}^{-3}\,\mathrm{s}^{-1}$, $C = 10^{-6}\,\mathrm{Pa}\,\mathrm{m}^{-1/3}\mathrm{s}^{1/3}$. Instead of setting inflow boundary conditions at $x = 0$, we enforce a zero extensional stress condition $M = 0$.  This condition allows the ice sheet to tend to the uniform thickness slab solution far upstream of the grounding line. For the uniform slab, the extensional stresses are equal to zero and the frictional stresses at the base of the ice sheet balance the gravitational forces. As a result, the horizontal velocity for the uniform thickness slab is given by
-%
-\begin{align}\label{eq:u_slab}
-    u = \left(\frac{\rho_I g h \tan(\alpha)}{C}\right)^n.
-\end{align}
-%
-A consequence of enforcing the slab solution at the left boundary is that, as we move upstream away from the grounding line, the strain rate tends to zero and one must regularise the primal formulation of the momentum balance equation.
-
-For this problem, we not only solve for the velocity $u$ or the velocity-stress pair $(u,M)$, but also for the thickness $h$ and the grounding line position $x_g$. We therefore complement the momentum balance equations with the mass balance equation \eqref{eq:conservation-mass} and the flotation condition \eqref{eq:flotation-condition}, effectively yielding a free boundary problem.
-
-We solve the free boundary problem with a primal method that seeks the velocity and thickness in $CG(2)\times CG(2)$, and with a dual method that computes the velocity, membrane stress and thickness in the space $CG(2)\times DG(1)\times CG(2)$. For the primal method, we consider a sequence of regularisation parameters $\epsilon$ between $1\, \mathrm{yr}^{-1}$ and $10^{-12}\,\mathrm{yr}^{-1}$. The results for the grounding line position are displayed in Table \ref{tab:slab}. The discrete problem is solved with Newton's method, and the initial guess for the values of the ice velocity, the ice thickness, and the extensional stress are set equal to the slab solution, such that $h = 500\,\mathrm{m}$, $u$ is equal to \eqref{eq:u_slab}, and $M = 0$. The initial guess for the grounding line position is set to the point where the flotation condition \eqref{eq:flotation-condition} holds for the constant thickness slab. We plot the values of the relative Newton residual in Figure \ref{fig:newton-its}. We can see that not only is the dual method just as accurate as the primal method solved using the lowest value of regularisation, but the rate of convergence of the Newton solver for the primal formulation quickly decreases for low values of $\epsilon$. In fact, for values of $\epsilon$ equal to or lower than $10^{-14}\,\mathrm{yr}^{-1}$, the relative Newton residual no longer reaches the minimum tolerance of $10^{-8}$ that we set for this problem.
+We solved the free boundary problem with a primal method that seeks the velocity and thickness in $CG(2)\times CG(2)$, and with a dual method that computes the velocity, membrane stress and thickness in the space $CG(2)\times DG(1)\times CG(2)$.
+For the primal method, we consider a sequence of regularisation parameters $\epsilon$ between $1\, \mathrm{yr}^{-1}$ and $10^{-12}\,\mathrm{yr}^{-1}$.
+The results for the grounding line position are displayed in Table \ref{tab:slab}.
+The discrete problem is solved with Newton's method, and the initial guess for the values of the ice velocity, the ice thickness, and the extensional stress are set equal to the slab solution, such that $h = 500\,\mathrm{m}$, $u$ is equal to \eqref{eq:u_slab}, and $M = 0$.
+The initial guess for the grounding line position is set to the point where the flotation condition \eqref{eq:flotation-condition} holds for the constant thickness slab.
+We plot the values of the relative Newton residual in figure \ref{fig:newton-its}.
+The solution obtained with the dual form is as accurate as the primal solution using the lowest value of regularisation.
+Moreover, the rate of convergence of the Newton solver for the primal formulation quickly decreases for low values of $\epsilon$.
+For values of $\epsilon$ equal to or lower than $10^{-14}\,\mathrm{yr}^{-1}$, the relative Newton residual no longer reaches the minimum tolerance of $10^{-8}$ that we set for this problem.
 
 %\renewcommand{\arraystretch}{1.25}
 \begin{table}[h]
@@ -440,6 +562,7 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
     \caption{Results for the slab of ice flowing into the ocean. Norm of the relative Newton residual for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation.}
     \label{fig:newton-its}
 \end{figure}
+
 
 \subsection{Gibbous ice shelf} \label{sec:gibbous-ice-shelf}
 
@@ -471,20 +594,13 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
     \label{fig:gibbous-calving-thickness}
 \end{figure}
 
-As another check that the dual form of the momentum balance equation produces the same answers as the primal form, we used the synthetic ``gibbous'' ice shelf test case from \S5.3 of \citet{shapero2021icepack}.
-The domain consists of the intersection of two circles of different radii chosen to roughly mimic the overall size of Larsen C.
-We prescribe the inflow thickness and velocity and run the coupled mass and momentum balance equations for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
-We then project these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
+For the spin-up phase of the experiment, we did an initial run for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
+We then projected these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
 The results are shown in figure \ref{fig:gibbous} and are identical to those obtained from the primal form of the problem up to discretization error.
+\textcolor{red}{Talk about the benchmark.}
 
-As a third and final phase of this experiment, we run the same simulation, but every 24 years we set the ice thickness to 0 in a prescribed region near the terminus.
-This forcing mimics the effect of a large iceberg calving event.
-Our prescribed evolution of the terminus is not a realistic representation of how calving works.
-Instead, we aim only to stress test the solver in order to see if it can handle regions of zero thickness.
-We have never succeeded at implementing a solver for the primal form of the problem that works well when the ice thickness is zero.
-By contrast, our solver for the dual problem still performs gracefully in ice-free areas.
+In the calving phase of the experiment, our solver for the dual problem still performed gracefully in ice-free areas.
 This feature offers the possibility of implementing physically-based calving models in a simple way.
-
 Figure \ref{fig:gibbous-calving-volumes} shows the evolution of the volume of ice in the shelf over the two spin-up phases and the calving phase.
 The 24-year recurrence interval is not enough time for the ice to advance back to the original edge of the computational domain.
 Using a longer interval would allow the calving terminus to advance back to its original position.
@@ -494,8 +610,9 @@ The number of nonlinear solver iterations to recompute the ice velocity after th
 This behavior is to be expected if we run the solver to convergence because it introduces a type of shock into the system.
 As the system relaxes back, the number of iterations decreases again.
 Moreover, we had to do some manual adjustment of the convergence tolerances.
-Several different strategies can alleviate the need for manual adjustment; see Appendix \ref{app:solution}.
-
+Several different strategies can alleviate the need for manual adjustment (see the appendix).
+\textcolor{red}{Give a plot showing the number of Newton solves.
+Do a comparison to the primal form with e.g. a small minimum thickness.}
 
 \subsection{Larsen C Ice Shelf}
 
@@ -508,22 +625,10 @@ Several different strategies can alleviate the need for manual adjustment; see A
     \label{fig:larsen-terminus-position}
 \end{figure}
 
-To test the dual momentum balance equations on a realistic problem, we simulated the evolution of the Larsen C Ice Shelf through the calving of Iceberg A-68 in 2017 \citep{larour2021physical}.
-We used the observed front positions from satellite imagery to set the terminus positions before and after the calving event; we did not implement a calving law as such.
-The Larsen C simulation requires several steps.
-\begin{enumerate}
-    \item We first estimated the fluidity field (the coefficient $A$ in the Glen law $\dot\varepsilon = A\tau^3$) of the ice shelf from remote sensing measurements of the thickness and velocity.
-        This step uses the primal form of the momentum balance equation from icepack.
-    \item We extrapolated the ice thickness and velocity onto a larger spatial domain.
-    \item We ran the simulation using the mass and dual momentum balance from the nominal start date of 2015 until the calving event in 2017.
-    \item We digitized the terminus position immediately after the calving event by hand and use the digitized terminus position to define an ice mask.
-    \item Using this mask, we set the ice thickness to zero over the spatial extent of the calved area.
-    \item We ran the simulation for 40 years after the calving event to see how the terminus advances again.
-\end{enumerate}
-The simulated terminus positions are shown in figure \ref{fig:larsen-terminus-position}.
+Our solver for the dual form of SSA was successfully able to compute velocity and stress fields on this realistic test case even in ice-free areas, enabling effective simulation of calving events.
+The simulated terminus positions of Larsen C at the start of the simulation, immediately after the calving event, and at the end are shown in figure \ref{fig:larsen-terminus-position}.
 The model can effectively handle the shock of a calving event and the subsequent readvance of the terminus.
-We find that after 40 years, the terminus has readvanced more than half way to its original position.
-A realistic simulation would need to include the possibility of smaller-scale calving events during this time.
+We find that after 40 years, the terminus has readvanced beyond its original position at some points and only half-way at others.
 
 We used the CG(1)/DG(0) pair for the velocity and stress as in the previous examples.
 To simulate the evolution of the glacier thickness, we used DG(1) elements together with the upwind numerical flux.
@@ -531,7 +636,7 @@ We found that using a DG discretization was necessary to get a reasonable-lookin
 When using continuous elements for the thickness, we found that the thickness field would develop spurious oscillations generated at the calving terminus.
 This finding is to be expected because continuous elements usually fare poorly at advecting sharp features like an advancing ice cliff.
 
-To solve the dual momentum balance equation, we used a linearly implicit scheme (see Appendix \ref{subsec:linearly-implicit-schemes}) with a hand-tuned choice of 10 Newton steps per iteration.
+To solve the dual momentum balance equation, we used a linearly implicit scheme (see appendix) with a hand-tuned choice of 10 Newton steps per iteration.
 This approach does not exactly solve the discretized dual momentum balance equation with finite timesteps but the approximation error converges to zero in the limit as the stepsize is reduced.
 
 
@@ -542,7 +647,7 @@ This approach does not exactly solve the discretized dual momentum balance equat
         \includegraphics[width=0.75\linewidth]{demos/kangerd/volumes.pdf}
     \end{center}
     \caption{Total volume in km${}^3$ of ice in the computational domain, exhibiting summer troughs and winter peaks.
-    The summer frontal ablation rate is tuned to give an overall constant yearly average volume.}
+    The summer maximum melt rate $m_0$ is tuned to give a roughly constant yearly average volume, although this simulation shows a small secular trend.}
     \label{fig:kangerd-volumes}
 \end{figure}
 
@@ -555,48 +660,9 @@ This approach does not exactly solve the discretized dual momentum balance equat
     \label{fig:kangerd-contours}
 \end{figure}
 
-As our final test case, we studied Kangerdlugssuaq Glacier, a grounded outlet glacier on the east coast of Greenland.
-Kangerdlugssuaq is one of the top three contributors to the total discharge from Greenland \citep{enderlin2014improved, mouginot2019forty}.
-The purpose of this exercise is to demonstrate that we can simulate the evolution of a marine-terminating glacier, including the seasonal advance and retreat of the terminus in response to ocean-induced frontal ablation in summer, using the dual form of the momentum balance equation.
-We do not aim to reproduce the exact calving history.
-
-The simulation of Kangerdlugssuaq proceeds in several steps, similar to our approach for Larsen C:
-\begin{enumerate}
-    \item We first estimate the friction field (the coefficient $K$ in the sliding law $u|_{z = b} = -K|\tau_b|^{n - 1}\tau$) from remote sensing measurements of the ice thickness, surface elevation, and velocity.
-        This step uses the primal form of the momentum balance equation from icepack.
-    \item We extrapolated the thickness, surface elevation, velocity, and friction coefficient onto a large spatial domain that extends further down Kangerdlugssuaq Fjord.
-    \item We ran the simulation using the mass and dual momentum balance equations for one year in order to propagate out any initial transients.
-        This stage uses only surface mass balance and thus permits the glacier to advance down the fjord.
-    \item We then turned on a time-periodic ablation field near the terminus in order to represent the effects of summer melt and calving and ran the simulation for a further four years.
-        This ablation field forces the terminus to advance and retreat.
-\end{enumerate}
-For the initialization, we used version 3 of the BedMachine Greenland data set for ice thickness and surface elevation \citep{morlighem2017bedmachine} and the MEaSUREs annual velocity mosaic from 2015-2016 \citep{joughin2010greenland} to infer the basal friction.
-To force the mass conservation equation \eqref{eq:conservation-mass}, we need to provide a surface mass balance (SMB) field $\dot a$ and a melt rate $\dot m$.
-We used a surface mass balance field that varies linearly with elevation:
-\begin{equation}
-    \dot a \approx a_0 + \frac{\delta a}{\delta s}\cdot s
-\end{equation}
-where $a_0$ is the SMB at sea level and $\delta a/\delta s$ is the SMB lapse rate.
-To fit the parameters $a_0$ and $\delta a/\delta s$, we used output from 2006-2021 of version 3.12 of the Mod\`ele Atmosph\'erique R\'egional (MAR) \citep{fettweis2020grsmbmip}.
-This regional climate model has been tested extensively for the polar regions and for Greenland.
-The fit had $r^2 = 0.91$, so a substantial fraction of the variance is explainable by surface elevation alone.
-
-To set the melt rate $\dot m$, we first created a smoothed ice mask $\mu$.
-The smoothed mask is required to be equal to 1 on the inflow boundary, 0 on the outflow boundary, and have 0 normal derivative along the side walls.
-We then compute $\mu$ as the minimizer of
-\begin{equation}
-    J(\mu) = \frac{1}{2}\int_\Omega\left((\mu - \mathbf{1}_{\{h > 0\}})^2 + \alpha^2|\nabla\mu|^2\right)dx
-\end{equation}
-where $\alpha$ is some smoothing length, and $\mathbf{1}_{\{h > 0\}}(x)$ is equal to 1 if $h(x) > 0$ and 0 if $h(x) = 0$.
-Here we choose $\alpha$ to be 1km, so the mask field rapidly approaches 1 within roughly one ice thickness of the terminus.
-The mask field $\mu$ is recalculated in every timestep.
-Finally, we set the melt rate at time $t$ as
-\begin{equation}
-    \dot m = m_0(1 - \mu)\min\{0, \cos(2\pi t)\}
-\end{equation}
-where $m_0$ is a maximum melt rate that we have to choose.
-
-In general, the total volume of ice in the simulated domain oscillates from summer lows to winter highs.
+Our solver for the dual form was able to simulate the advance and retreat and of the terminus of a real grounded glacier.
+We ran several instances of the experiment outlined above with different values of the maximum melt rate $m_0$.
+In general, the total volume of ice in the simulated domain oscillates from summer lows to winter highs over a wide range of $m_0$ values.
 With too low or too high a maximum melt rate, there is an additional secular trend in the volume time series as the glacier advances or retreats down the fjord.
 We found that taking $m_0$ on the order of 30 km/yr makes the yearly-averaged volume roughly constant; see figure \ref{fig:kangerd-volumes}.
 Spread over an inland distance of roughly 1 km in a 5 km-wide fjord for only the summer season, this gives a total discharge roughly of the same order as the observed value of 24 km${}^3$/yr \citep{king2018seasonal}.
@@ -606,7 +672,7 @@ The simulated terminus position oscillates by roughly 2.5-4km seasonally, which 
 The true calving terminus of the glacier is upstream of the simulated calving terminus, which is likely a consequence of our initialization or other under-parameterized quantities.
 Additionally, the centerline of the true calving terminus is slightly more retreated than the margins.
 The centerline of the simulated terminus, on the other hand, is more advanced than the margins.
-This discrepancy shows that the ad hoc rule we used to add frontal ablation is imperfect.
+This discrepancy shows that the ad hoc rule we used to remove ice mass near the terminus is imperfect.
 Several processes govern the terminus dynamics of Greenland outlet glaciers, including frontal ablation from ocean melt, stress-induced crevassing and calving, and back-pressure from sea ice or ice melange in the fjord.
 We did not attempt to include a real calving law in this exercise.
 We are nonetheless able to simulate ice-free areas and the advance and retreat of the glacier terminus using the dual form of the momentum balance equations.
@@ -614,12 +680,14 @@ Closing the gap between the simple demonstrative parameterizations used here and
 For example, one could add calving by setting the ice thickness to zero in areas near the glacier terminus where surface crevasses would penetrate to the water line according to the Nye criterion.
 
 
+
+% ------------------
 \section{Discussion}
 
 The momentum balance equation for glacier flow has an alternative, dual expression of the same underlying physics but with different properties and several advantages.
 The most significant advantage is that the dual form remains solvable in the limit of zero ice thickness.
-We have found that the primal form is only solvable when setting some minimum thickness or using level set-type methods.
-Solvability at zero thickness makes it possible to implement advance and retreat of the terminus in a simple way without recourse to level set-type methods.
+Existing strategies for handling ice-free areas include alteration of the equations or solvers, level set methods, and re-meshing.
+The dual form accomplishes the same goal and we claim that the challenges of implementating it, while not trivial, are favorable compared to other strategies.
 
 Another key feature is that the dual form reverses the behavior of all the nonlinearities around the zero-disturbance state.
 The primal formulation of the problem has a singularity (i.e. terms in the momentum balance equation go to $\infty$) in the limit as the strain rate goes to zero.
@@ -627,7 +695,7 @@ Infinite singularities can only be dealt with by fudging the problem itself.
 In the dual form, however, this singularity becomes instead a degeneracy (terms that go to zero where the usual theory requires positivity).
 These degeneracies are still a challenge.
 But the problem, with no modifications, is amenable to solution by continuation or other methods.
-Trust region methods might work as well and this remains to be explored.
+Trust region methods \citep{nocedal2006numerical} might work as well and this remains to be explored.
 
 The story becomes more complicated when we consider the interaction between the dependence on thickness and membrane stress or strain rate.
 The dual form possess only degeneracies in the limit as the thickness or membrane stress go to zero.
@@ -644,7 +712,7 @@ Finally, since the dual form is a mixed problem, it is possible to make bad choi
 
 There are several promising avenues of future work on this problem.
 Including the stress tensor as an unknown and the constitutive relation as an equation to be solved opens up several possibilities for modifying the physics.
-Since we do not need to explicitly solve for the stress tensor in terms of the strain rate tensor, we can easily implement composite flow laws like the Goldsby-Kohlstedt law.
+Since we do not need to explicitly solve for the stress tensor in terms of the strain rate tensor, we can easily implement composite flow laws like the Goldsby-Kohlstedt law \citep{goldsby2001superplastic}.
 We could also add a term containing the time derivative of the stress tensor to the constitutive relation to implement Maxwell viscoelasticity.
 Both of these extensions have historically been difficult to achieve with conventional approaches to glacier flow modeling.
 Second, the solvability of the dual problem in the limit of zero ice thickness can expand the scope of glaciological data assimilation.
@@ -686,7 +754,7 @@ GGdD was supported by the University of Oxford Mathematical Institute Graduate S
 
 
 
-% -----------------------------------------
+% -------------------------
 \appendix\section{Appendix}
 
 We have largely focused on the dual form of the SSA momentum balance as an alternative to the primal form with certain favorable numerical properties, such as solvability at zero thickness.

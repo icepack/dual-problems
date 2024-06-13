@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib_scalebar.scalebar import ScaleBar
 import firedrake
 from firedrake import assemble, inner, sqrt, dx, ds
 try:
@@ -48,13 +49,8 @@ with firedrake.CheckpointFile("steady-state-fine.h5", "r") as chk:
 fig, axes = plt.subplots(nrows=1, ncols=3, sharex=True, sharey=True)
 for ax in axes:
     ax.set_aspect("equal")
-for ax in axes[1:]:
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
-
-axes[0].get_xaxis().set_visible(False)
-axes[0].set_ylabel("northing (meters)")
-axes[0].ticklabel_format(style="sci", axis="both", scilimits=(0, 0))
 
 axes[0].set_title("Thickness")
 colors = tripcolor(h_steady, axes=axes[0])
@@ -67,9 +63,12 @@ fig.colorbar(colors, label="meters/year", orientation="horizontal", pad=0.04, ax
 axes[2].set_title("Membrane stress")
 elt = firedrake.FiniteElement("DG", "triangle", M_steady.ufl_element().degree())
 S = firedrake.FunctionSpace(M_steady.ufl_domain(), elt)
-m = firedrake.interpolate(1e3 * sqrt(inner(M_steady, M_steady)), S)
+m = firedrake.Function(S).interpolate(1e3 * sqrt(inner(M_steady, M_steady)))
 colors = tripcolor(m, axes=axes[2])
 fig.colorbar(colors, label="kPa", orientation="horizontal", pad=0.04, ax=axes[2])
+
+scalebar = ScaleBar(1, units="m", length_fraction=0.25, location="lower right")
+axes[0].add_artist(scalebar)
 
 fig.savefig("steady-state.pdf", bbox_inches="tight")
 

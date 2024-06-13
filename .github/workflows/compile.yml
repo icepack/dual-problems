@@ -12,7 +12,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -yq patchelf texlive texlive-fonts-extra
-          pip install netCDF4
+          pip install netCDF4 matplotlib-scalebar
           pip install git+https://github.com/firedrakeproject/irksome.git@05e122041a2487b3c5b8946847397e2b81c81c1a
           pip install git+https://github.com/icepack/Trilinos.git
           pip install git+https://github.com/icepack/pyrol.git

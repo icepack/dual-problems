@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib_scalebar.scalebar import ScaleBar
 from matplotlib.lines import Line2D
 import rasterio
 import firedrake
@@ -58,11 +59,10 @@ Q = firedrake.FunctionSpace(mesh, "CG", 1)
 
 fig, axes = plt.subplots()
 axes.set_aspect("equal")
-axes.set_xlabel("easting (m)")
-axes.set_ylabel("northing")
 axes.set_xlim((485e3, 510e3))
 axes.set_ylim((-2308e3, -2285e3))
-axes.ticklabel_format(axis="both", style="scientific", scilimits=(0, 0))
+axes.get_xaxis().set_visible(False)
+axes.get_yaxis().set_visible(False)
 axes.imshow(image, **imshow_kwargs)
 kwargs = {"levels": [9.0, 10.0], "axes": axes}
 norm = matplotlib.colors.Normalize(vmin=tmin, vmax=tmax)
@@ -71,6 +71,9 @@ for index in range(index_start, index_end + 1):
     t = timesteps[index]
     color = matplotlib.colors.to_hex(cmap(norm(t)))
     tricontour(firedrake.Function(Q).project(hs[index]), colors=color, **kwargs)
+
+scalebar = ScaleBar(1, units="m", length_fraction=0.4, location="lower right")
+axes.add_artist(scalebar)
 
 mappable = matplotlib.cm.ScalarMappable(norm=norm, cmap="viridis")
 fig.colorbar(mappable, ax=axes, orientation="vertical", label="time (yrs)")

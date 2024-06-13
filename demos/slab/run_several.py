@@ -27,7 +27,7 @@ import matplotlib
 # matplotlib.rcParams.update(pgf_with_latex(1, hscale = 0.5))
 
 fig, ax = plt.subplots(1,len(k), figsize=(6, 2.5))
-cmap = matplotlib.cm.get_cmap('Reds')
+cmap = matplotlib.colormaps.get_cmap('Reds')
 colors = [cmap(i) for i in np.linspace(0.25,1,len(reg))]
 
 

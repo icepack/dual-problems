@@ -24,7 +24,7 @@ with firedrake.CheckpointFile(args.input, "r") as chk:
     u_avg = chk.h5pyfile.attrs["mean_speed"]
 
 Δ = firedrake.FunctionSpace(input_mesh, "DG", 0)
-μ = firedrake.interpolate(Constant(1), Δ)
+μ = firedrake.Function(Δ).interpolate(Constant(1))
 
 # Create the mesh and some function spaces
 with open(args.outline, "r") as outline_file:

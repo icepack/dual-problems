@@ -126,8 +126,8 @@ N = Constant(len(indices))
 area = assemble(Constant(1) * dx(mesh))
 
 def loss_functional(u):
-    u_int = firedrake.interpolate(u[0], Δ)
-    v_int = firedrake.interpolate(u[1], Δ)
+    u_int = firedrake.Function(Δ).interpolate(u[0])
+    v_int = firedrake.Function(Δ).interpolate(u[1])
     δu = u_int - u_o
     δv = v_int - v_o
     return 0.5 / N * ((δu / σ_x)**2 + (δv / σ_y)**2) * dx
@@ -165,7 +165,7 @@ u_avg = assemble(sqrt(inner(u, u)) * dx) / area
 
 frac = Constant(0.5)
 C = frac * sqrt(inner(τ, τ)) / sqrt(inner(u, u)) ** (1 / m)
-q = firedrake.interpolate(-ln(u_avg ** (1 / m) * C / τ_avg), Q)
+q = firedrake.Function(Q).interpolate(-ln(u_avg ** (1 / m) * C / τ_avg))
 
 def bed_friction(**kwargs):
     u, q = map(kwargs.get, ("velocity", "log_friction"))

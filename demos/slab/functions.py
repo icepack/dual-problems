@@ -162,7 +162,7 @@ def dual_one(z, A, C, n, m, rhoi, rhow, g, b_fcn, db_fcn, reg, reg_slide, a, sl)
 def recover_coordinates_1D(V):
     mesh = V.mesh()
     Vvec = VectorFunctionSpace(mesh, V.ufl_element().family(), V.ufl_element().degree())
-    xV = interpolate(SpatialCoordinate(mesh), Vvec).dat.data
+    xV = Function(Vvec).interpolate(SpatialCoordinate(mesh)).dat.data
     indV = np.argsort(xV)
     xV = xV[indV]
     return indV, xV

@@ -68,7 +68,7 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
         length=Lx,
     )
     lx = firedrake.Constant(Lx)
-    h = firedrake.interpolate(h_0 - dh * x[0] / lx, Q)
+    h = firedrake.Function(Q).interpolate(h_0 - dh * x[0] / lx)
 
     inflow_ids = (1,)
     outflow_ids = (2,)
@@ -114,7 +114,7 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
 
     # Check the relative accuracy of the solution
     u, M = z.subfunctions
-    u_exact = firedrake.interpolate(U_exact, V)
+    u_exact = firedrake.Function(V).interpolate(U_exact)
     error = firedrake.norm(u - u_exact) / firedrake.norm(u_exact)
     δx = mesh.cell_sizes.dat.data_ro.min()
     errors.append((δx, error))

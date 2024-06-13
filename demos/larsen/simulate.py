@@ -48,7 +48,7 @@ h = h_obs.copy(deepcopy=True)
 J = 0.5 * ((h - h_obs) ** 2 + α**2 * inner(grad(h), grad(h))) * dx
 F = firedrake.derivative(J, h)
 firedrake.solve(F == 0, h)
-h = firedrake.interpolate(h, Δ)
+h = firedrake.Function(Δ).interpolate(h)
 
 μ = firedrake.project(μ_obs, Q)
 J = 0.5 * ((μ - μ_obs) ** 2 + α**2 * inner(grad(μ), grad(μ))) * dx
@@ -64,7 +64,7 @@ A0 = icepack.rate_factor(T)
 
 ε_c = firedrake.Constant(0.01)
 A = A0 * firedrake.exp(θ)
-τ_c = firedrake.interpolate((ε_c / A)**(1 / n), Q)
+τ_c = firedrake.Function(Q).interpolate((ε_c / A)**(1 / n))
 
 fns = [model.viscous_power, model.ice_shelf_momentum_balance]
 

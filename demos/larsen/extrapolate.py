@@ -22,7 +22,7 @@ with firedrake.CheckpointFile(args.input, "r") as chk:
     θ_input = chk.load_function(input_mesh, name="log_fluidity")
 
     Δ = firedrake.FunctionSpace(input_mesh, "DG", 0)
-    μ = firedrake.interpolate(Constant(1), Δ)
+    μ = firedrake.Function(Δ).interpolate(Constant(1))
 
 # Create the mesh and some function spaces
 with open(args.outline, "r") as outline_file:

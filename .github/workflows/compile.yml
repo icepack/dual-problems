@@ -19,14 +19,14 @@ jobs:
           pip install git+https://github.com/icepack/icepack.git
           pip install git+https://github.com/icepack/icepack2.git
       - name: Check out git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Compile TeX document
         env:
           EARTHDATA_USERNAME: ${{ secrets.EARTHDATA_USERNAME }}
           EARTHDATA_PASSWORD: ${{ secrets.EARTHDATA_PASSWORD }}
         run: make
       - name: Upload PDF file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dual-problems
           path: dual-problems.pdf

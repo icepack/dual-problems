@@ -263,6 +263,9 @@ Using equations \eqref{eq:M-anti-derivative} and \eqref{eq:tau-anti-derivative},
     \label{eq:ssa-primal-action}
 \end{align}
 Note that the action has units of energy per unit time, or power.
+The final summand of equation \eqref{eq:ssa-primal-action} enforces the Neumann boundary condition at the ice terminus.
+The Dirichlet boundary condition along the ice inflow, on the other hand, has to instead be enforced by eliminating coefficients from the resulting nonlinear system.
+
 A mechanical computation of the second derivative of $J$ shows that this functional is convex.
 The theory of non-equilibrium thermodynamics tells us that $J$ represents the rate of dissipation of thermodynamic free energy \citep{edelen1972nonlinear}.
 Once again, the essential point is that finding a minimizer $u$ of the functional $J$ defined above is equivalent to finding a solution of the SSA differential equation.
@@ -339,6 +342,7 @@ We can use integration by parts to push the symmetric gradient of $v$ over onto 
     & \quad + \int_\Gamma\left(hM\cdot\nu - \frac{1}{2}\left(\rho_Igh^2 - \rho_Wgh_W^2\right)\nu\right)\cdot v\;dx.
 \end{align}
 If we require that this is equal to 0 for all perturbation fields $v$, we recover both conservation of membrane stress (equation \eqref{eq:membrane-stress-conservation}) and the boundary condition (equation \eqref{eq:terminus-bc}).
+As with the primal form, we have to enforce the inflow boundary condition by eliminating degrees of freedom.
 In effect, finding a critical point of the dual action functional is a constrained optimization problem; the velocity field acts like a Lagrange multiplier that enforces the constraint of stress conservation.
 
 \begin{figure}[h]
@@ -439,7 +443,6 @@ As a third and final phase of this experiment, we run the same simulation, but e
 This forcing mimics the effect of a large iceberg calving event.
 Our prescribed evolution of the terminus is not a realistic representation of how calving works.
 Instead, we aim only to stress test the solver in order to see if it can handle regions of zero thickness.
-We have never succeeded at implementing a solver for the primal form of the problem that works well when the ice thickness is zero.
 
 
 \subsection{Demonstration on calving of Larsen C Ice Shelf}
@@ -615,12 +618,13 @@ In particular, the stress field shows a discontinuity at the new calving front a
     \label{fig:gibbous-residuals}
 \end{figure}
 
+We repeated this phase of the experiment using a comparable solver for the primal problem.
+As soon as there were any ice-free areas, the solver for the primal problem diverged.
+
 Figure \ref{fig:gibbous-residuals} shows the number of Newton iterations needed to compute the ice velocity at each timestep.
 The number of iterations after a calving event is much greater than after a normal timestep.
 This behavior is to be expected if we run the solver to convergence because it introduces a type of shock into the system.
 As the system relaxes back, the number of iterations decreases again.
-Several different strategies can alleviate the need for manual adjustment (see the appendix).
-\textcolor{red}{Do a comparison to the primal form with e.g. a small minimum thickness.}
 
 \subsection{Larsen C Ice Shelf}
 
@@ -737,7 +741,9 @@ More work remains to be done from the applied math side on optimal solution algo
 \section{Conclusion}
 
 In this paper, we derived the dual form of the glacier momentum balance equation, implemented a numerical solver for it, and demonstrated its use on synthetic and real problems.
-We argue that the dual form is worth considering as an alternative to the conventional primal form because of how easy it is to simulate terminus advance and retreat.
+The key advantage of the dual form is that the problem does not need to be regularized when the strain rate or thickness are equal to 0.
+The disadvantages are that (1) the dual form has more unknowns and (2) solvers for the resulting nonlinear optimization problem require special tuning.
+Despite these additional costs, we argue that the dual form is worth considering as an alternative to the conventional primal form because of how easy it is to simulate terminus advance and retreat.
 We did not aim to study directly the holy grail problem of calving laws here.
 But making it easier to simulate terminus evolution is a virtual requirement for testing these calving laws with computer models.
 
@@ -852,8 +858,6 @@ When the problem is degenerate, we no longer have these guarantees.
 We still know that $L$ has a unique saddle point because it is \emph{strictly} convex with respect to $M$ and $\tau$, the problem is that it fails to be \emph{strongly} or \emph{uniformly} convex.
 There are workable remedies for this issue that do not degrade the conditioning of the problem to the same extent as regularization does for the primal problem.
 
-\subsubsection{Perturbed Hessian}
-
 Newton's method with line search guarantees second-order convergence for nice problems.
 In the event that the second derivative has degeneracies, we can instead try to compute a search direction b solving the perturbed system
 \begin{equation}
@@ -869,51 +873,8 @@ for some constants $A'$, $K'$ having the right units and for some minimum thickn
 The addition of $d^2G$ regularizes the search directions.
 It does \emph{not} regularize or perturb what solution we are looking for, only how we look for it.
 
-Regularizing the search directions likely sacrifices the second-order convergence rate of Newton's method.
+Regularizing the search directions sacrifices the second-order convergence rate of Newton's method.
 It does, however, achieve faster convergence than typical first-order quasi-Newton methods like BFGS \citep{nocedal2006numerical}.
-
-\subsubsection{Trust region methods}
-
-We can also abandon the line search idea entirely and use trust region methods.
-For a detailed discussion of trust region methods, see \citet{nocedal2006numerical} or \citet{conn2000trust}.
-Trust region methods instead adaptively select $\lambda$ in equation \eqref{eq:regularized-newton-step} to be as small as possible while approaching the critical point of the dual action as rapdily as possible.
-One of the key advantages of trust region methods is that they can cope well with functional that have degenerated second derivatives while still achieving superlinear or even quadratic convergence rates.
-
-\subsubsection{Linearly implicit schemes}
-\label{subsec:linearly-implicit-schemes}
-
-Finally, we might recognize that the momentum balance equation is only one part of the overall dynamics.
-For a time-dependent simulation these are certain to include the mass balance equation, and they may include heat flow or other effects as well.
-The overall structure including mass balance is a differential-algebraic equation:
-\begin{align}
-    \partial_th & = F(h; u, \ldots) \\
-    0 & = dL(u, M, \tau; h, \ldots)
-\end{align}
-A typical timestepping scheme to solve these equations proceeds by (1) updating the thickness using the mass balance equation, and then (2) solving the momentum balance equation with the new value of the thickness:
-\begin{align}
-    \frac{h_{k + 1} - h_k}{\delta t} & = F(h_{k + 1}; u_k, \ldots) \\
-    0 & = dL(u_{k + 1}, M_{k + 1}, \tau_{k + 1}; h_{k + 1}, \ldots)
-\end{align}
-Although it requires more work, we could solve the mass and momentum balance equations simultaneously:
-\begin{align}
-    \frac{h_{k + 1} - h_k}{\delta t} & = F(h_{k + 1}; u_{k + 1}, \ldots) \\
-    0 & = dL(u_{k + 1}, M_{k + 1}, \tau_{k + 1}; h_{k + 1}, \ldots)
-\end{align}
-The time discretization here is the simplest first-order backward differencing scheme.
-This scheme is L-stable, which is desirable for problems like glacier flow that are predominantly dissipative \citep{wanner1996solving}.
-One could also use more sophisticated implicit Runge-Kutta methods.
-
-The idea of \emph{linearly implicit} or \emph{Rosenbrock} schemes is that, rather than solve a nonlinear equation to convergence in every timestep, we can instead do a single iteration of Newton's method \citep{wanner1996solving}.
-The thinking behind this approach is that, if the timestep is not too large, the first Newton iteration usually does the bulk of the error reduction.
-This is not as accurate as solving the nonlinear system as precisely as possible.
-But if the original nonlinear scheme converges asymptotically as $\delta t^p$ then the linearly implicit scheme does too.
-In other words, the ``lazy'' approach may do worse, but only by a constant factor -- the convergence rate is the same.
-Equally as important, linearly implicit schemes retain all of the favorable stability properties of fully implicit methods.
-
-We still have not answered how linearly implicit schemes are a solution to the degeneracy issue.
-The key trick is that \textbf{one does not need to use the exact linearization in a linearly implicit scheme} in order to achieve the same convergence rate.
-For example, we can use the perturbation from equation \eqref{eq:regularized-newton-step}.
-
 
 
 \end{document}

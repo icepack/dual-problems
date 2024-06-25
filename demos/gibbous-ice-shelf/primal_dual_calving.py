@@ -15,6 +15,7 @@ with firedrake.CheckpointFile("steady-state-coarse.h5", "r") as chk:
     h = chk.load_function(mesh, "thickness", idx=idx)
     h0 = h.copy(deepcopy=True)
     u = chk.load_function(mesh, "velocity", idx=idx)
+    u_0 = u.copy(deepcopy=True)
     M = chk.load_function(mesh, "membrane_stress", idx=idx)
 
 Q = h.function_space()
@@ -48,7 +49,7 @@ L = sum(fn(**fields, **rheology) for fn in fns)
 F = derivative(L, z)
 
 # Set up a regularized Lagrangian
-h_min = firedrake.Constant(0.1)
+h_min = firedrake.Constant(1e-3)
 rfields = {
     "velocity": u,
     "membrane_stress": M,
@@ -57,7 +58,7 @@ rfields = {
 
 L_r = sum(fn(**rfields, **rheology) for fn in fns)
 F_r = derivative(L_r, z)
-H_r = derivative(F_r, z)
+J_r = derivative(F_r, z)
 
 # Set up the mass balance equation
 prognostic_problem = model.mass_balance(
@@ -86,11 +87,17 @@ prognostic_solver = irksome.TimeStepper(
 )
 
 # Set up the diagnostic solver and boundary conditions and do an initial solve
-bc = firedrake.DirichletBC(Z.sub(0), firedrake.Constant((0, 0)), (1,))
-problem = solvers.ConstrainedOptimizationProblem(L, z, H=H_r, bcs=bc)
-diagnostic_solver = solvers.NewtonSolver(problem, tolerance=1e-4)
-
-residuals = [list(diagnostic_solver.solve())]
+bc = firedrake.DirichletBC(Z.sub(0), u_0, (1,))
+diagnostic_problem = firedrake.NonlinearVariationalProblem(F, z, J=J_r, bcs=bc)
+params = {
+    "solver_parameters": {
+        "snes_type": "newtonls",
+        "snes_rtol": 1e-4,
+        "snes_linesearch_type": "nleqerr",
+        "snes_monitor": None,
+    },
+}
+diagnostic_solver = firedrake.NonlinearVariationalSolver(diagnostic_problem, **params)
 
 # Create the calving mask -- this describes how we'll remove ice
 radius = firedrake.Constant(60e3)
@@ -102,7 +109,7 @@ mask = firedrake.conditional(inner(x - y, x - y) < radius**2, 0.0, 1.0)
 calving_frequency = 24.0
 time_since_calving = 0.0
 
-for step in tqdm.trange(num_steps):
+for step in range(num_steps):
     prognostic_solver.advance()
 
     if time_since_calving > calving_frequency:
@@ -110,8 +117,8 @@ for step in tqdm.trange(num_steps):
         time_since_calving = 0.0
     time_since_calving += float(dt)
     h.interpolate(firedrake.max_value(0, h))
+    diagnostic_solver.solve()
 
-    residuals.append(list(diagnostic_solver.solve()))
 
 # Save the results to disk
 with open("residuals.json", "w") as residuals_file:

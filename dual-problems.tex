@@ -649,9 +649,6 @@ We found that using a DG discretization was necessary to get a reasonable-lookin
 When using continuous elements for the thickness, we found that the thickness field would develop spurious oscillations generated at the calving terminus.
 This finding is to be expected because continuous elements usually fare poorly at advecting sharp features like an advancing ice cliff.
 
-To solve the dual momentum balance equation, we used a linearly implicit scheme (see appendix) with a hand-tuned choice of 10 Newton steps per iteration.
-This approach does not exactly solve the discretized dual momentum balance equation with finite timesteps but the approximation error converges to zero in the limit as the stepsize is reduced.
-
 
 \subsection{Kangerdlugssuaq Glacier}
 

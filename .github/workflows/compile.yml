@@ -18,6 +18,7 @@ jobs:
           pip install git+https://github.com/icepack/pyrol.git
           pip install git+https://github.com/icepack/icepack.git
           pip install git+https://github.com/icepack/icepack2.git
+          pip install numpy==1.26.4
       - name: Check out git repository
         uses: actions/checkout@v4
       - name: Compile TeX document

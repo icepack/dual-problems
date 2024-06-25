@@ -613,18 +613,19 @@ In particular, the stress field shows a discontinuity at the new calving front a
     \begin{center}
         \includegraphics[width=0.75\linewidth]{demos/gibbous-ice-shelf/counts.pdf}
     \end{center}
-    \caption{The number of Newton iterations to compute the ice velocity at each step of the calving phase of the experiment.
+    \caption{The number of Newton iterations to compute the ice velocity at each step of the calving phase of the experiment using the primal form with the thickness clamped from below and using the dual form.
     Calving occurs every 24 years.}
     \label{fig:gibbous-residuals}
 \end{figure}
 
 We repeated this phase of the experiment using a comparable solver for the primal problem.
-As soon as there were any ice-free areas, the solver for the primal problem diverged.
-
-Figure \ref{fig:gibbous-residuals} shows the number of Newton iterations needed to compute the ice velocity at each timestep.
-The number of iterations after a calving event is much greater than after a normal timestep.
-This behavior is to be expected if we run the solver to convergence because it introduces a type of shock into the system.
+When we use no minimum thickness at all, the solver for the primal form diverges as soon as there are any ice-free areas.
+To remedy this problem, we clamped the thickness from below at 1mm.
+Figure \ref{fig:gibbous-residuals} shows the number of Newton iterations necessary to obtain the desired level of convergence through two calving events using both the primal and dual forms.
+In each case, the number of iterations goes up after a calving event.
 As the system relaxes back, the number of iterations decreases again.
+The number of iterations required for the dual form is in general slightly greater.
+
 
 \subsection{Larsen C Ice Shelf}
 

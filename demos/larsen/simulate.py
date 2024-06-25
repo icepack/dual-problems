@@ -75,7 +75,7 @@ fields = {
     "thickness": h,
 }
 
-h_min = Constant(10.0)
+h_min = Constant(0.1)
 rfields = {
     "velocity": u,
     "membrane_stress": M,
@@ -112,10 +112,13 @@ problem_params = {
 }
 solver_params = {
     "solver_parameters": {
-        #"snes_monitor": None,
-        "snes_max_it": 10,
-        "snes_convergence_test": "skip",
+        "snes_monitor": None,
+        #"snes_linesearch_monitor": None,
+        "snes_linesearch_max_it": 200,
+        "snes_max_it": 1000,
+        "snes_rtol": 1e-4,
         "snes_type": "newtonls",
+        "snes_linesearch_type": "nleqerr",
         "ksp_type": "gmres",
         "pc_type": "lu",
         "pc_factor_mat_solver_type": "mumps",
@@ -168,7 +171,7 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
 
     num_steps = int(args.final_time * args.timesteps_per_year) + 1
     timesteps = np.linspace(0.0, args.final_time, num_steps)
-    for step, t in enumerate(tqdm.tqdm(timesteps)):
+    for step, t in enumerate(timesteps):
         if abs(t - args.time_to_calve) < float(dt) / 2:
             print("IT CALVING NOW")
             h.interpolate(μ * h)

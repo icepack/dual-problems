@@ -127,11 +127,17 @@ fig.savefig("volumes.pdf", bbox_inches="tight")
 
 # Make a plot showing the number of Newton iterations required during the
 # calving phase of the experiment
-with open("residuals.json", "r") as residuals_file:
-    residuals = json.load(residuals_file)
+with open("primal-counts.json", "r") as input_file:
+    primal_counts = json.load(input_file)
+
+with open("dual-counts.json", "r") as input_file:
+    dual_counts = json.load(dual_counts)
 
 fig, ax = plt.subplots(figsize=(6.4, 3.2))
-ax.bar(list(range(len(residuals))), [len(r) for r in residuals])
+indices = np.array(list(range(len(primal_counts))))
+width = 0.25
+ax.bar(indices - 2 * width, primal_counts, width=width, label="primal")
+ax.bar(indices, dual_counts, width=width, label="dual")
 ax.set_xlabel("Timestep (years)")
 ax.set_ylabel("Iterations")
-fig.savefig("residuals.pdf", bbox_inches="tight")
+fig.savefig("counts.pdf", bbox_inches="tight")

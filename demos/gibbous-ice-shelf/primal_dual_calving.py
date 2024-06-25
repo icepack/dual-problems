@@ -1,12 +1,24 @@
 import json
+import argparse
 import numpy as np
 from numpy import pi as π
 import tqdm
 import firedrake
 from firedrake import inner, derivative
 import irksome
+import icepack
 from icepack2 import model, solvers
 from icepack2.constants import glen_flow_law as n
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--form", choices=["primal", "dual"])
+parser.add_argument("--hmin", type=float, default=1e-3)
+parser.add_argument("--rtol", type=float, default=1e-4)
+parser.add_argument("--final-time", type=float, default=400.0)
+parser.add_argument("--num-steps", type=int, default=400)
+parser.add_argument("--calving-frequency", type=float, default=24.0)
+parser.add_argument("--output")
+args = parser.parse_args()
 
 # Load the input data
 with firedrake.CheckpointFile("steady-state-coarse.h5", "r") as chk:
@@ -20,45 +32,87 @@ with firedrake.CheckpointFile("steady-state-coarse.h5", "r") as chk:
 
 Q = h.function_space()
 V = u.function_space()
-Σ = M.function_space()
-
-Z = V * Σ
-z = firedrake.Function(Z)
-z.sub(0).assign(u)
-z.sub(1).assign(M);
 
 # Set up the Lagrangian
 ε_c = firedrake.Constant(0.01)
 τ_c = firedrake.Constant(0.1)
+h_min = firedrake.Constant(args.hmin)
 
-u, M = firedrake.split(z)
-fields = {
-    "velocity": u,
-    "membrane_stress": M,
-    "thickness": h,
+params = {
+    "snes_type": "newtonls",
+    "snes_rtol": args.rtol,
+    "snes_linesearch_type": "nleqerr",
+    "snes_monitor": None,
 }
 
-fns = [model.viscous_power, model.ice_shelf_momentum_balance]
+# Set up the diagnostic solver and boundary conditions and do an initial solve
+if args.form == "primal":
+    from icepack.constants import ice_density as ρ_I, water_density as ρ_W, gravity as g
+    from firedrake import div
+    def gravity(**kwargs):
+        u = kwargs["velocity"]
+        h = kwargs["thickness"]
+        ρ = ρ_I * (1 - ρ_I / ρ_W)
+        return 0.5 * ρ * g * h**2 * div(u)
 
-rheology = {
-    "flow_law_exponent": n,
-    "flow_law_coefficient": ε_c / τ_c ** n,
-}
+    def terminus(**kwargs):
+        return firedrake.Constant(0.0)
 
-L = sum(fn(**fields, **rheology) for fn in fns)
-F = derivative(L, z)
+    _model = icepack.models.IceShelf(gravity=gravity, terminus=terminus)
 
-# Set up a regularized Lagrangian
-h_min = firedrake.Constant(1e-3)
-rfields = {
-    "velocity": u,
-    "membrane_stress": M,
-    "thickness": firedrake.max_value(h_min, h),
-}
+    u = u.copy(deepcopy=True)
+    A = firedrake.Constant(ε_c / τ_c ** n)
+    opts = {
+        "diagnostic_solver_type": "petsc",
+        "diagnostic_solver_parameters": params,
+    }
+    outer_solver = icepack.solvers.FlowSolver(_model, dirichlet_ids=[1], **opts)
+    outer_solver.diagnostic_solve(velocity=u, thickness=h, fluidity=A)
+    h = outer_solver.fields["thickness"]
+    diagnostic_solver = outer_solver._diagnostic_solver._solver
 
-L_r = sum(fn(**rfields, **rheology) for fn in fns)
-F_r = derivative(L_r, z)
-J_r = derivative(F_r, z)
+elif args.form == "dual":
+    Σ = M.function_space()
+    Z = V * Σ
+    z = firedrake.Function(Z)
+    z.sub(0).assign(u)
+    z.sub(1).assign(M);
+
+    u, M = firedrake.split(z)
+    fields = {
+        "velocity": u,
+        "membrane_stress": M,
+        "thickness": h,
+    }
+
+    fns = [model.viscous_power, model.ice_shelf_momentum_balance]
+
+    rheology = {
+        "flow_law_exponent": n,
+        "flow_law_coefficient": ε_c / τ_c ** n,
+    }
+
+    L = sum(fn(**fields, **rheology) for fn in fns)
+    F = derivative(L, z)
+
+    # Set up a regularized Lagrangian
+    rfields = {
+        "velocity": u,
+        "membrane_stress": M,
+        "thickness": firedrake.max_value(h_min, h),
+    }
+
+    L_r = sum(fn(**rfields, **rheology) for fn in fns)
+    F_r = derivative(L_r, z)
+    J_r = derivative(F_r, z)
+
+    # Set up the diagnostic solver and boundary conditions and do an initial solve
+    bc = firedrake.DirichletBC(Z.sub(0), u_0, (1,))
+    diagnostic_problem = firedrake.NonlinearVariationalProblem(F, z, J=J_r, bcs=bc)
+    params = {"solver_parameters": params}
+    diagnostic_solver = firedrake.NonlinearVariationalSolver(diagnostic_problem, **params)
+    diagnostic_solver.solve()
+
 
 # Set up the mass balance equation
 prognostic_problem = model.mass_balance(
@@ -69,10 +123,7 @@ prognostic_problem = model.mass_balance(
     test_function=firedrake.TestFunction(Q),
 )
 
-final_time = 400.0
-num_steps = 400
-
-dt = firedrake.Constant(final_time / num_steps)
+dt = firedrake.Constant(args.final_time / args.num_steps)
 t = firedrake.Constant(0.0)
 method = irksome.BackwardEuler()
 prognostic_params = {
@@ -86,18 +137,6 @@ prognostic_solver = irksome.TimeStepper(
     prognostic_problem, method, t, dt, h, **prognostic_params
 )
 
-# Set up the diagnostic solver and boundary conditions and do an initial solve
-bc = firedrake.DirichletBC(Z.sub(0), u_0, (1,))
-diagnostic_problem = firedrake.NonlinearVariationalProblem(F, z, J=J_r, bcs=bc)
-params = {
-    "solver_parameters": {
-        "snes_type": "newtonls",
-        "snes_rtol": 1e-4,
-        "snes_linesearch_type": "nleqerr",
-        "snes_monitor": None,
-    },
-}
-diagnostic_solver = firedrake.NonlinearVariationalSolver(diagnostic_problem, **params)
 
 # Create the calving mask -- this describes how we'll remove ice
 radius = firedrake.Constant(60e3)
@@ -106,20 +145,22 @@ y = firedrake.Constant((0.0, radius))
 mask = firedrake.conditional(inner(x - y, x - y) < radius**2, 0.0, 1.0)
 
 # Run the simulation
-calving_frequency = 24.0
 time_since_calving = 0.0
 
-for step in range(num_steps):
+num_newton_iterations = []
+for step in range(args.num_steps):
     prognostic_solver.advance()
 
-    if time_since_calving > calving_frequency:
+    if time_since_calving > args.calving_frequency:
         h.interpolate(mask * h)
         time_since_calving = 0.0
     time_since_calving += float(dt)
-    h.interpolate(firedrake.max_value(0, h))
+    expr = firedrake.max_value(0 if args.form == "dual" else h_min, h)
+    h.interpolate(expr)
     diagnostic_solver.solve()
+    num_newton_iterations.append(diagnostic_solver.snes.getIterationNumber())
 
 
 # Save the results to disk
-with open("residuals.json", "w") as residuals_file:
-    json.dump(residuals, residuals_file)
+with open(args.output, "w") as output_file:
+    json.dump(num_newton_iterations, output_file)

@@ -113,7 +113,7 @@ F = firedrake.derivative(L, z)
 L_r = sum(fn(**rfields, **rheology) for fn in fns)
 F_r = firedrake.derivative(L_r, z)
 J_r = firedrake.derivative(F_r, z)
-α = firedrake.Constant(0.0)
+α = firedrake.Constant(0.01)
 J = J_r + α * J_1
 
 inflow_ids = [1]
@@ -144,11 +144,13 @@ solver_params = {
         "pc_factor_mat_solver_type": "umfpack",
     },
 }
-firedrake.solve(F_1 == 0, z, **problem_params, **solver_params)
+#firedrake.solve(F_1 == 0, z, **problem_params, **solver_params)
 
 u_problem = firedrake.NonlinearVariationalProblem(F, z, J=J, **problem_params)
 u_solver = firedrake.NonlinearVariationalSolver(u_problem, **solver_params)
 u_solver.solve()
+
+α.assign(0.0)
 
 # Fix the accumulation rate. We used estimates of surface mass balance from the
 # regional climate model MAR and remote sensing measurements of surface

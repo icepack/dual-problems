@@ -3,7 +3,7 @@ import argparse
 import tqdm
 import numpy as np
 import firedrake
-from firedrake import interpolate, as_vector, max_value, Constant, derivative
+from firedrake import as_vector, max_value, Constant, derivative
 from icepack2.constants import (
     ice_density as ρ_I,
     water_density as ρ_W,
@@ -70,15 +70,15 @@ for nx in np.logspace(k_min, k_max, num_steps, base=2, dtype=int):
     z = firedrake.Function(Z)
     z.sub(0).assign(Constant((u_inflow, 0)))
 
-    u_exact = interpolate(as_vector((exact_u(x), 0)), V)
+    u_exact = firedrake.Function(V).interpolate(as_vector((exact_u(x), 0)))
 
-    h = interpolate(h0 - dh * x / Lx, Q)
+    h = firedrake.Function(Q).interpolate(h0 - dh * x / Lx)
     ds = (1 + β) * ρ / ρ_I * dh
-    s = interpolate(d + h0 - dh + ds * (1 - x / Lx), Q)
+    s = firedrake.Function(Q).interpolate(d + h0 - dh + ds * (1 - x / Lx))
 
     # TODO: adjust the yield stress so that this has a more sensible value
-    C = interpolate(friction(x), Q)
-    u_c = interpolate((τ_c / C)**m, Q)
+    C = firedrake.Function(Q).interpolate(friction(x))
+    u_c = firedrake.Function(Q).interpolate((τ_c / C)**m)
 
     # Create the boundary conditions
     inflow_ids = (1,)

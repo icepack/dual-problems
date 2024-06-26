@@ -80,7 +80,7 @@ fields = {
     "surface": s,
 }
 
-h_min = Constant(10.0)
+h_min = Constant(1.0)
 rfields = {
     "velocity": u,
     "membrane_stress": M,

@@ -138,6 +138,7 @@ solver_params = {
         "snes_max_it": args.snes_max_it,
         "snes_divergence_tolerance": -1,
         "snes_type": "newtonls",
+        "snes_linesearch_type": "nleqerr",
         "ksp_type": "gmres",
         "pc_type": "lu",
         "pc_factor_mat_solver_type": "umfpack",

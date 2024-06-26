@@ -1,6 +1,5 @@
 import argparse
 import subprocess
-import tqdm
 import numpy as np
 from numpy import pi as π
 import xarray
@@ -130,8 +129,10 @@ problem_params = {
 }
 solver_params = {
     "solver_parameters": {
-        #"snes_monitor": None,
+        "snes_monitor": None,
         #"snes_converged_reason": None,
+        #"ksp_monitor": None,
+        #"ksp_view": None,
         "snes_stol": 0.0,
         "snes_rtol": args.snes_rtol,
         "snes_max_it": args.snes_max_it,
@@ -139,7 +140,7 @@ solver_params = {
         "snes_type": "newtonls",
         "ksp_type": "gmres",
         "pc_type": "lu",
-        "pc_factor_mat_solver_type": "mumps",
+        "pc_factor_mat_solver_type": "umfpack",
     },
 }
 firedrake.solve(F_1 == 0, z, **problem_params, **solver_params)
@@ -216,7 +217,7 @@ with firedrake.CheckpointFile(args.output, "w") as chk:
         chk.save_function(μ, name="ice_mask", idx=0)
 
     timesteps = np.linspace(0.0, args.final_time, num_steps)
-    for step in tqdm.trange(num_steps):
+    for step in range(num_steps):
         t.assign(t + dt)
         if args.calving:
             μ_solver.solve()

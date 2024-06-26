@@ -131,7 +131,7 @@ with open("primal-counts.json", "r") as input_file:
     primal_counts = json.load(input_file)
 
 with open("dual-counts.json", "r") as input_file:
-    dual_counts = json.load(dual_counts)
+    dual_counts = json.load(input_file)
 
 fig, ax = plt.subplots(figsize=(6.4, 3.2))
 indices = np.array(list(range(len(primal_counts))))

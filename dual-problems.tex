@@ -699,12 +699,19 @@ The most significant advantage is that the dual form remains solvable in the lim
 Existing strategies for handling ice-free areas include alteration of the equations or solvers, level set methods, and re-meshing.
 The dual form accomplishes the same goal and we claim that the challenges of implementating it, while not trivial, are favorable compared to other strategies.
 
+Our comparison of the primal and dual forms shows that using the dual form is more computationally expensive than the primal form because of the greater number of unknowns.
+On an experiment including calving, the dual form required only slightly more Newton iterations than the primal form with the thickness clamped from below.
+Whether using the dual form is preferable in general depends on what the simulation aims to achieve.
+If speed is the main concern then the primal form with clamping is faster.
+But it introduces a mass balance error, even moreso if the velocity computed in the fictitious ice layer develops a non-zero divergence.
+If this mass balance error is not acceptable then the additional cost of using the dual form may be worth it.
+
 Another key feature is that the dual form reverses the behavior of all the nonlinearities around the zero-disturbance state.
 The primal formulation of the problem has a singularity (i.e. terms in the momentum balance equation go to $\infty$) in the limit as the strain rate goes to zero.
 Infinite singularities can only be dealt with by fudging the problem itself.
 In the dual form, however, this singularity becomes instead a degeneracy (terms that go to zero where the usual theory requires positivity).
 These degeneracies are still a challenge.
-But the problem, with no modifications, is amenable to solution by continuation or other methods.
+But the problem, with no modifications, is amenable to solution by approximate Newton methods, as described in the appendix.
 Trust region methods \citep{nocedal2006numerical} might work as well and this remains to be explored.
 
 The story becomes more complicated when we consider the interaction between the dependence on thickness and membrane stress or strain rate.
@@ -730,9 +737,7 @@ We could also add a term containing the time derivative of the stress tensor to 
 Both of these extensions have historically been difficult to achieve with conventional approaches to glacier flow modeling.
 Second, the solvability of the dual problem in the limit of zero ice thickness can expand the scope of glaciological data assimilation.
 For example, it may become possible to assimilate the entire time series of altimetry measurements from ICESat-2 into flow models in a way that constraints not just the elevation of grounded ice, but what areas are free of ice.
-Finally, on the practical side, we used a grab bag of ad hoc strategies to compute a solution of the dual problem for this paper.
-Each strategy was effective on some test cases but not others.
-More work remains to be done from the applied math side on optimal solution algorithms for these types of problems.
+Finally, more work remains to be done from the applied math side on optimal solution algorithms for these types of problems.
 
 
 % ------------------

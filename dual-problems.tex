@@ -373,8 +373,8 @@ Finally, we will conduct two more experiments to show off the use of the dual fo
 
 The verification exercises we use are taken from those used to test the implementation of the primal form of SSA in the icepack package\citep{shapero2021icepack}.
 We compare numerical results on a sequence of grids to exactly solvable instances of SSA and check that the results converge with the expected order of accuracy.
-Finite element theory predicts that the $L^2$-norm difference between the exact solution and the solutions obtained using $CG(k)$ finite elements is $\mathscr{O}(\delta x^{p + 1})$ where $\delta x$ is the mesh spacing.
-If the slope in a log-log fit of error against mesh spacing deviates significantly from $p + 1$, this would indicate some mis-specification of the problem or bug in the solver.
+Finite element theory predicts that the $L^2$-norm difference between the exact solution and the solutions obtained using $CG(k)$ finite elements is $\mathscr{O}(\delta x^{k + 1})$ where $\delta x$ is the mesh spacing.
+If the slope in a log-log fit of error against mesh spacing deviates significantly from $k + 1$, this would indicate some mis-specification of the problem or bug in the solver.
 
 The first test is to use the exact solution for the velocity of a floating ice shelf with thickness
 \begin{equation}

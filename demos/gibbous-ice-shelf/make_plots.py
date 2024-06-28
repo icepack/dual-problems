@@ -138,6 +138,7 @@ indices = np.array(list(range(len(primal_counts))))
 width = 0.25
 ax.bar(indices - 2 * width, primal_counts, width=width, label="primal")
 ax.bar(indices, dual_counts, width=width, label="dual")
+ax.legend()
 ax.set_xlabel("Timestep (years)")
 ax.set_ylabel("Iterations")
 fig.savefig("counts.pdf", bbox_inches="tight")

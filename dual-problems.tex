@@ -56,7 +56,7 @@
     The key feature of the dual action is that the flow law and friction law are both inverted, which changes the character of the nonlinearities.
     This altered character makes it possible to implement numerical solvers for the dual form that work \emph{even when the ice thickness or strain rate are exactly equal to zero}.
     Solvers for the primal form typically fail on such input data and require regularization of the problem.
-    This robustness makes it possible to implement iceberg calving in a strikingly simple way: the modeler sets the ice thickness to zero in the desired area.
+    This robustness makes it possible to implement iceberg calving in a simple way: the modeler sets the ice thickness to zero in the desired area.
     We provide several demonstrations and a reference implementation.
 }
 
@@ -138,7 +138,7 @@ The SSA model is derived by (1) expanding the Stokes equations in the aspect rat
         flow law exponent & $n$ & &  \\
         sliding law exponent & $m$ & &  \\
         fluidity coefficient & $A$ & megapascals${}^{-n}$ years${}^{-1}$ &  \\
-        sliding coefficient & $K$ & megapascals${}^{-m}$ meters years${}^{-1}$ &
+        slipperiness coefficient & $K$ & megapascals${}^{-m}$ meters years${}^{-1}$ &
     \end{tabular}
     \caption{Variable, symbol, physical units, and tensor rank -- 1 for vectors, 2 for matrices, etc.}
     \label{tab:symbols}
@@ -436,8 +436,8 @@ We additionally evaluate the total wall clock time to run this experiment using 
 The primal problem using $CG(1)$ elements for the velocity has two unknowns for each vertex of the mesh.
 The dual problem using $CG(1) \times DG(0)$ elements for the velocity and stress has an additional three unknowns per triangle.
 The Euler formula (\#vertices - \#edges + \#triangles $\approx$ 2) implies that there are approximately twice as many triangles as there are vertices.
-Consequently there are about 4x as many degrees of freedom when solving the dual problem as there are for the primal problem.
-Assuming naively that the time to solution scales linearly with the number of unknowns, we would then expect that solving the dual problem is 4x as expensive as solving the primal problem.
+Consequently there are about 4$\times$ as many degrees of freedom when solving the dual problem as there are for the primal problem.
+Assuming naively that the time to solution scales linearly with the number of unknowns, we would then expect that solving the dual problem is 4$\times$ as expensive as solving the primal problem.
 
 As a third and final phase of this experiment, we run the same simulation, but every 24 years we set the ice thickness to 0 in a prescribed region near the terminus.
 This forcing mimics the effect of a large iceberg calving event.
@@ -471,7 +471,7 @@ We do not aim to reproduce the exact calving history.
 
 The exercise proceeds in several steps, similar to our approach for Larsen C:
 \begin{enumerate}
-    \item Estimate the friction field (the coefficient $K$ in the sliding law $u|_{z = b} = -K|\tau_b|^{n - 1}\tau$) from remote sensing measurements of the ice thickness, surface elevation, and velocity.
+    \item Estimate the slipperiness (the coefficient $K$ in the sliding law $u|_{z = b} = -K|\tau_b|^{n - 1}\tau$) from remote sensing measurements of the ice thickness, surface elevation, and velocity.
         This step uses the primal form of the momentum balance equation from icepack.
     \item Extrapolate the thickness, surface elevation, velocity, and friction coefficient onto a large spatial domain that extends further down Kangerlussuaq Fjord.
     \item Run the simulation using the mass and dual momentum balance equations for one year in order to propagate out any initial transients.
@@ -506,6 +506,7 @@ Finally, we set the melt rate at time $t$ as
     \dot m = m_0(1 - \mu)\min\{0, \cos(2\pi t)\}
 \end{equation}
 where $m_0$ is a maximum melt rate that we have to choose.
+Although we do not employ the level set method here directly, the approach outlined above is similar to using a level set method.
 
 The purpose of this exercise is to demonstrate that our solver for the dual form can simulate advance and retreat of a grounded tidewater glacier in response to melt forcing at the terminus.
 Again, our goal is not to validate a particular calving law.
@@ -542,19 +543,28 @@ Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution
 \subsection{Comparison with primal form on slab glacier}
 
 We solved the free boundary problem with a primal method that seeks the velocity and thickness in $CG(2)\times CG(2)$, and with a dual method that computes the velocity, membrane stress and thickness in the space $CG(2)\times DG(1)\times CG(2)$.
-For the primal method, we consider a sequence of regularisation parameters $\epsilon$ between $1\, \mathrm{yr}^{-1}$ and $10^{-12}\,\mathrm{yr}^{-1}$.
+For the primal method, we need to include a regularization parameter $\epsilon$ in order to prevent singularities in the constitutive relation.
+For this exercise we solve a 1D form of the equation, so the relevant term in the variational form of the momentum balance equation is
+\begin{equation}
+    \langle F(u), v\rangle = \int_\Omega \left\{2hA^{-1/n}|\partial_xu^2 + \epsilon^2|^{(n - 2)/2}\partial_xu\cdot\partial_xv + \ldots\right\}dx
+\end{equation}
+We consider a sequence of regularization parameters $\epsilon$ between $1\, \mathrm{yr}^{-1}$ and $10^{-12}\,\mathrm{yr}^{-1}$.
 The results for the grounding line position are displayed in Table \ref{tab:slab}.
 The discrete problem is solved with Newton's method, and the initial guess for the values of the ice velocity, the ice thickness, and the extensional stress are set equal to the slab solution, such that $h = 500\,\mathrm{m}$, $u$ is equal to \eqref{eq:u_slab}, and $M = 0$.
 The initial guess for the grounding line position is set to the point where the flotation condition \eqref{eq:flotation-condition} holds for the constant thickness slab.
 We plot the values of the relative Newton residual in figure \ref{fig:newton-its}.
-The solution obtained with the dual form is as accurate as the primal solution using the lowest value of regularisation.
+The solution obtained with the dual form is as accurate as the primal solution using the lowest value of regularization.
 Moreover, the rate of convergence of the Newton solver for the primal formulation quickly decreases for low values of $\epsilon$.
 For values of $\epsilon$ equal to or lower than $10^{-14}\,\mathrm{yr}^{-1}$, the relative Newton residual no longer reaches the minimum tolerance of $10^{-8}$ that we set for this problem.
+
+Figure \ref{fig:newton-its} shows that using a larger value of the regularization parameter reduces the number of iterations needed to achieve convergence.
+However, using more regularization also increases the misfit between the computed velocity and the true velocity.
+The dual form makes no such compromise in accuracy but the solver still retains a high degree of efficiency.
 
 %\renewcommand{\arraystretch}{1.25}
 \begin{table}[h]
 \centering
-\caption{Results for the slab of ice flowing into the ocean. Values of the steady state grounding line position $x_g$ and thickness at the grounding line for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation. We also present the number of Newton iterations required to converge.}
+\caption{Results for the slab of ice flowing into the ocean. Values of the steady state grounding line position $x_g$ and thickness at the grounding line for computations with the primal formulation with varying regularization parameters $\epsilon$ and with the dual formulation. We also present the number of Newton iterations required to converge.}
 \label{tab:slab}
 \begin{tabular}{ccccc}
 \toprule
@@ -567,7 +577,7 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
 \begin{figure}[h]
     \centering
     \includegraphics[width=\linewidth]{demos/slab/figures/newton_its_alpha1.00.pdf}
-    \caption{Results for the slab of ice flowing into the ocean. Norm of the relative Newton residual for computations with the primal formulation with varying regularisation parameters $\epsilon$ and with the dual formulation.}
+    \caption{Results for the slab of ice flowing into the ocean. Norm of the relative Newton residual for computations with the primal formulation with varying regularization parameters $\epsilon$ and with the dual formulation.}
     \label{fig:newton-its}
 \end{figure}
 
@@ -597,9 +607,9 @@ For the spin-up phase of the experiment, we did an initial run for 400 years on 
 We then projected these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
 The results are shown in figure \ref{fig:gibbous}(a)-(c) and are identical to those obtained from the primal form of the problem up to discretization error.
 
-When we used the spin-up phase of the experiment as a benchmark to measure the performance of the dual and primal solvers, we found that the dual problem required between 2.5x and 2.7x as much time.
+When we used the spin-up phase of the experiment as a benchmark to measure the performance of the dual and primal solvers, we found that the dual problem required between 2.5$\times$ and 2.7$\times$ as much time.
 These results were consistent across different mesh resolutions and when run several times on multiple machines.
-Since the dual problem has 4x as many unknowns, the added cost that we found experimentally is less than what we would expect if we naively assumed that cost is proportional to the number of degrees of freedom.
+Since the dual problem has 4$\times$ as many unknowns, the added cost that we found experimentally is less than what we would expect if we naively assumed that cost is proportional to the number of degrees of freedom.
 
 In the calving phase of the experiment, our solver for the dual problem still worked in ice-free areas.
 This feature offers the possibility of implementing physically-based calving models in a simple way.

@@ -23,7 +23,7 @@ with firedrake.CheckpointFile("kangerdlugssuaq-year5.h5", "r") as chk:
 # Make a plot of the volumes
 volumes = np.array([firedrake.assemble(h * dx) for h in hs]) / 1e9
 fig, axes = plt.subplots(figsize=(6.4, 3.2))
-axes.set_title("Kangerdlugssuaq ice volume")
+axes.set_title("Kangerlussuaq ice volume")
 axes.set_xlabel("years")
 axes.set_ylabel("ice volume (km${}^3$)")
 axes.plot(timesteps, volumes)
@@ -77,5 +77,5 @@ axes.add_artist(scalebar)
 
 mappable = matplotlib.cm.ScalarMappable(norm=norm, cmap="viridis")
 fig.colorbar(mappable, ax=axes, orientation="vertical", label="time (yrs)")
-axes.set_title("Simulated terminus of Kangerdlugssuaq", pad=15)
+axes.set_title("Simulated terminus of Kangerlussuaq", pad=15)
 fig.savefig("contours.pdf", bbox_inches="tight")

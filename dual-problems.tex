@@ -462,10 +462,10 @@ In all, the experiment proceeds in several steps:
 \end{enumerate}
 
 
-\subsection{Demonstration on Kangerdlugssuaq Glacier}
+\subsection{Demonstration on Kangerlussuaq Glacier}
 
-Our final test case is simulating Kangerdlugssuaq Glacier, a grounded outlet glacier on the east coast of Greenland.
-Kangerdlugssuaq is one of the top three contributors to the total discharge from Greenland \citep{enderlin2014improved, mouginot2019forty}.
+Our final test case is simulating Kangerlussuaq Glacier, a grounded outlet glacier on the east coast of Greenland.
+Kangerlussuaq is one of the top three contributors to the total discharge from Greenland \citep{enderlin2014improved, mouginot2019forty}.
 The purpose of this exercise is to demonstrate that we can simulate the evolution of a marine-terminating glacier, including the seasonal advance and retreat of the terminus in response to ocean-induced frontal ablation in summer, using the dual form.
 We do not aim to reproduce the exact calving history.
 
@@ -473,7 +473,7 @@ The exercise proceeds in several steps, similar to our approach for Larsen C:
 \begin{enumerate}
     \item Estimate the friction field (the coefficient $K$ in the sliding law $u|_{z = b} = -K|\tau_b|^{n - 1}\tau$) from remote sensing measurements of the ice thickness, surface elevation, and velocity.
         This step uses the primal form of the momentum balance equation from icepack.
-    \item Extrapolate the thickness, surface elevation, velocity, and friction coefficient onto a large spatial domain that extends further down Kangerdlugssuaq Fjord.
+    \item Extrapolate the thickness, surface elevation, velocity, and friction coefficient onto a large spatial domain that extends further down Kangerlussuaq Fjord.
     \item Run the simulation using the mass and dual momentum balance equations for one year in order to propagate out any initial transients.
         This stage uses only surface mass balance and thus permits the glacier to advance down the fjord.
     \item Turn on a time-periodic ablation field near the terminus in order to represent the effects of summer melt and calving and ran the simulation for a further four years.
@@ -650,7 +650,7 @@ When using continuous elements for the thickness, we found that the thickness fi
 This finding is to be expected because continuous elements usually fare poorly at advecting sharp features like an advancing ice cliff.
 
 
-\subsection{Kangerdlugssuaq Glacier}
+\subsection{Kangerlussuaq Glacier}
 
 \begin{figure}[h]
     \begin{center}
@@ -665,7 +665,7 @@ This finding is to be expected because continuous elements usually fare poorly a
     \begin{center}
         \includegraphics[width=0.75\linewidth]{demos/kangerd/contours.pdf}
     \end{center}
-    \caption{Simulated terminus position of Kangerdlugssuaq Glacier over one half-period, from approximately August at its most retreated to April at its most advanced.
+    \caption{Simulated terminus position of Kangerlussuaq Glacier over one half-period, from approximately August at its most retreated to April at its most advanced.
     The colors of the contours show the time.}
     \label{fig:kangerd-contours}
 \end{figure}

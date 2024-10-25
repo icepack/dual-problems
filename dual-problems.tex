@@ -125,7 +125,7 @@ The SSA model is derived by (1) expanding the Stokes equations in the aspect rat
 \begin{table}[h]
     \begin{tabular}{cccc}
         \cline{1-4}
-        name & symbol & units & rank \\
+        Name & Symbol & Units & Rank \\
         \cline{1-4}
         velocity & $u$ & meters years${}^{-1}$ & 1 \\
         strain rate & $\dot\varepsilon$ & years${}^{-1}$ & 2 \\
@@ -380,7 +380,7 @@ The first test is to use the exact solution for the velocity of a floating ice s
 \begin{equation}
     h = h_0 - \delta h \cdot x / L_x
 \end{equation}
-in a domain of length $L_x$ = 20km.
+in a domain of length $L_x$ = 20 km.
 With a constant value of the fluidity coefficient $A$, the velocity in the $x$ direction is
 \begin{equation}
     u_x = u_0 + L_x A \left(\frac{\varrho g h_0}{4}\right)^n\left(1 - \left(1 - \frac{\delta h \cdot x}{h_0\cdot L_x}\right)^{n + 1}\right)
@@ -408,7 +408,7 @@ As a more challenging test in a flowline setting, we consider a slab of ice of c
 We compute steady states under this configuration using the primal and dual forms described above.
 We set the ice thickness at $x = 0$ to $h = 500\, \mathrm{m}$ and the bedrock angle to $\alpha = 1^\circ$. The bed is given by the expression
 \begin{align}
-    b(x) = 1500 - x\tan{\alpha}\,\mathrm{m}.
+    b(x) = 1500\,\mathrm{m} - x\tan{\alpha}.
 \end{align}
 %
 For the material parameters, we set $n = 3$, $A = 10^{-24}\,\mathrm{Pa}^{-3}\,\mathrm{s}^{-1}$, $C = 10^{-6}\,\mathrm{Pa}\,\mathrm{m}^{-1/3}\mathrm{s}^{1/3}$.
@@ -605,7 +605,7 @@ solver & $\epsilon\,\mathrm{yr}^{-1}$ & $x_g\,\mathrm{km}$ & $h(x_g)\,\mathrm{m}
 
 For the spin-up phase of the experiment, we did an initial run for 400 years on a mesh with a 5km resolution, at which point the system is close to steady state.
 We then projected these fields to a finer mesh with a resolution of 2km and use them as the initial state for a further 400 years of spin-up.
-The results are shown in figure \ref{fig:gibbous}(a)-(c) and are identical to those obtained from the primal form of the problem up to discretization error.
+The results are shown in figure \ref{fig:gibbous}a-c and are identical to those obtained from the primal form of the problem up to discretization error.
 
 When we used the spin-up phase of the experiment as a benchmark to measure the performance of the dual and primal solvers, we found that the dual problem required between 2.5$\times$ and 2.7$\times$ as much time.
 These results were consistent across different mesh resolutions and when run several times on multiple machines.
@@ -616,7 +616,7 @@ This feature offers the possibility of implementing physically-based calving mod
 Figure \ref{fig:gibbous-calving-volumes} shows the evolution of the volume of ice in the shelf over the two spin-up phases and the calving phase.
 The 24-year recurrence interval is not enough time for the ice to advance back to the original edge of the computational domain.
 Using a longer interval would allow the calving terminus to advance back to its original position.
-Figure \ref{fig:gibbous}(d) shows the thickness of the ice shelf immediately after the calving event (e) and (f) show the magnitude of the change in speed and stress respectively.
+Figure \ref{fig:gibbous}d-f show the thickness of the ice shelf immediately after the calving event, the magnitude of the change in speed, and the magnitude of the change in stress.
 In particular, the stress field shows a discontinuity at the new calving front as expected.
 
 \begin{figure}[h]
@@ -685,10 +685,10 @@ We ran several instances of the experiment outlined above with different values 
 In general, the total volume of ice in the simulated domain oscillates from summer lows to winter highs over a wide range of $m_0$ values.
 With too low or too high a maximum melt rate, there is an additional secular trend in the volume time series as the glacier advances or retreats down the fjord.
 We found that taking $m_0$ on the order of 30 km/yr makes the yearly-averaged volume roughly constant; see figure \ref{fig:kangerd-volumes}.
-Spread over an inland distance of roughly 1 km in a 5 km-wide fjord for only the summer season, this gives a total discharge roughly of the same order as the observed value of 24 km${}^3$/yr \citep{king2018seasonal}.
+Spread over an inland distance of roughly 1 km in a 5 km-wide fjord for only the summer season, this gives a total discharge roughly of the same order as the observed value of 24 km${}^3$ yr${}^{-1}$ \citep{king2018seasonal}.
 
 Figure \ref{fig:kangerd-contours} shows the evolution of the calving terminus from a minimum to the following maximum extent.
-The simulated terminus position oscillates by roughly 2.5-4km seasonally, which is close to the observed variation \citep{schild2013seasonal}.
+The simulated terminus position oscillates by roughly 2.5-4 km seasonally, which is close to the observed variation \citep{schild2013seasonal}.
 The true calving terminus of the glacier is upstream of the simulated calving terminus, which is likely a consequence of our initialization or other under-parameterized quantities.
 Additionally, the centerline of the true calving terminus is slightly more retreated than the margins.
 The centerline of the simulated terminus, on the other hand, is more advanced than the margins.

@@ -55,17 +55,17 @@ for ax in axes.flatten():
 
 axes[0, 0].set_title("Thickness")
 kw = {"xy": (0.02, 0.08), "xycoords": "axes fraction"}
-axes[0, 0].annotate("a)", **kw)
+axes[0, 0].annotate("a", **kw)
 colors = tripcolor(h_steady, vmin=0.0, axes=axes[0, 0])
 fig.colorbar(colors, label="meters", orientation="horizontal", pad=0.04, ax=axes[0, 0])
 
 axes[0, 1].set_title("Velocity")
-axes[0, 1].annotate("b)", **kw)
+axes[0, 1].annotate("b", **kw)
 colors = streamplot(u_steady, resolution=10e3, seed=1729, axes=axes[0, 1])
 fig.colorbar(colors, label="meters/year", orientation="horizontal", pad=0.04, ax=axes[0, 1])
 
 axes[0, 2].set_title("Membrane stress")
-axes[0, 2].annotate("c)", **kw)
+axes[0, 2].annotate("c", **kw)
 elt = firedrake.FiniteElement("DG", "triangle", M_steady.ufl_element().degree())
 S = firedrake.FunctionSpace(mesh, elt)
 m = firedrake.Function(S).interpolate(1e3 * sqrt(inner(Ms[0], Ms[0])))
@@ -73,19 +73,19 @@ colors = tripcolor(m, axes=axes[0, 2])
 fig.colorbar(colors, label="kPa", orientation="horizontal", pad=0.04, ax=axes[0, 2])
 
 axes[1, 0].set_title("Calved thickness")
-axes[1, 0].annotate("d)", **kw)
+axes[1, 0].annotate("d", **kw)
 index = (timesteps_3 <= args.calving_freq).argmin() + 1
 colors = tripcolor(hs[index], vmin=0.0, axes=axes[1, 0])
 
 axes[1, 1].set_title("Speed change")
-axes[1, 1].annotate("e)", **kw)
+axes[1, 1].annotate("e", **kw)
 V = us[0].function_space()
 δu = firedrake.Function(V).interpolate(us[index] - us[0])
 colors = firedrake.tripcolor(δu, axes=axes[1, 1])
 fig.colorbar(colors, label="meters/year", orientation="horizontal", pad=0.04, ax=axes[1, 1])
 
 axes[1, 2].set_title("Stress change")
-axes[1, 2].annotate("f)", **kw)
+axes[1, 2].annotate("f", **kw)
 ΔM = Ms[index] - Ms[0]
 δM = firedrake.Function(S).project(1e3 * sqrt(inner(ΔM, ΔM)))
 colors = firedrake.tripcolor(δM, axes=axes[1, 2])

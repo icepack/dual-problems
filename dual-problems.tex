@@ -545,9 +545,10 @@ Figure \ref{fig:linear-glacier-convergence-rate} shows that a numerical solution
 We solved the free boundary problem with a primal method that seeks the velocity and thickness in $CG(2)\times CG(2)$, and with a dual method that computes the velocity, membrane stress and thickness in the space $CG(2)\times DG(1)\times CG(2)$.
 For the primal method, we need to include a regularization parameter $\epsilon$ in order to prevent singularities in the constitutive relation.
 For this exercise we solve a 1D form of the equation, so the relevant term in the variational form of the momentum balance equation is
-\begin{equation}
-    \langle F(u), v\rangle = \int_\Omega \left\{2hA^{-1/n}|\partial_xu^2 + \epsilon^2|^{(n - 2)/2}\partial_xu\cdot\partial_xv + \ldots\right\}dx
-\end{equation}
+\begin{align}
+    & \langle F(u), v\rangle = \nonumber\\
+    & \quad \int_\Omega \left\{2hA^{-1/n}|\partial_xu^2 + \epsilon^2|^{(n - 2)/2}\partial_xu\cdot\partial_xv + \ldots\right\}dx
+\end{align}
 We consider a sequence of regularization parameters $\epsilon$ between $1\, \mathrm{yr}^{-1}$ and $10^{-12}\,\mathrm{yr}^{-1}$.
 The results for the grounding line position are displayed in Table \ref{tab:slab}.
 The discrete problem is solved with Newton's method, and the initial guess for the values of the ice velocity, the ice thickness, and the extensional stress are set equal to the slab solution, such that $h = 500\,\mathrm{m}$, $u$ is equal to \eqref{eq:u_slab}, and $M = 0$.

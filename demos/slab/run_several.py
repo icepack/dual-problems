@@ -141,7 +141,7 @@ plt.close(fig)
 table_file = open("tables/table_alpha%.2f.txt" % args.alpha, "w")
 for i in range(len(reg)):
     if i == 0:
-        line = "\\multirow{%d}{*}{primal} & " % len(reg)
+        line = "\\multirow{%d}{*}{Primal} & " % len(reg)
     else:
         line = " & "
     exp = np.log10(reg[i])
@@ -154,7 +154,7 @@ for i in range(len(reg)):
     line += " \\\\ \n"
     table_file.write(line)
 table_file.write("\\midrule \n")
-line = "dual & - "
+line = "Dual & - "
 for j in range(len(k)):
     line += "& %.2f & %.2f & %d " % (xg[j,-1], hxg[j,-1], its[j,-1])
 line += " \\\\ \n"

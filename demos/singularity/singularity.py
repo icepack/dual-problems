@@ -13,7 +13,7 @@ kw = {"xy": (0.02, 0.08), "xycoords": "axes fraction", "fontsize": fontsize}
 
 fig, ax = plt.subplots(constrained_layout=True)
 ax.set_title("Primal form", fontsize=fontsize)
-ax.set_xlabel("strain rate $\dot\\varepsilon$", fontsize=fontsize)
+ax.set_xlabel("Strain rate $\dot\\varepsilon$", fontsize=fontsize)
 ax.get_xaxis().set_ticks([])
 ax.get_yaxis().set_visible(False)
 ax.set_xlim((-1.0, 1.0))
@@ -31,7 +31,7 @@ ddws = n * abs(ts) ** (n - 1)
 
 fig, ax = plt.subplots(constrained_layout=True)
 ax.set_title("Dual form", fontsize=fontsize)
-ax.set_xlabel("stress $\\tau$", fontsize=fontsize)
+ax.set_xlabel("Stress $\\tau$", fontsize=fontsize)
 ax.get_xaxis().set_ticks([])
 ax.get_yaxis().set_visible(False)
 ax.set_xlim((-1.0, 1.0))

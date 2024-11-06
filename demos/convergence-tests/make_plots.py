@@ -9,12 +9,13 @@ parser.add_argument("--output", default="results.pdf")
 args = parser.parse_args()
 
 model_types = ["Ice shelf", "Ice stream"]
+panel_letters = ["a", "b"]
 fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True)
 axes[0].set_xlabel("Mesh spacing (m)")
 axes[0].set_ylabel("$L^2$-norm relative error")
 axes[1].get_yaxis().set_visible(False)
 
-for ax, model_type in zip(axes, model_types):
+for ax, model_type, panel_letter in zip(axes, model_types, panel_letters):
     filename = model_type.lower().replace(" ", "_") + "_results.json"
     with open(filename, "r") as input_file:
         data = json.load(input_file)
@@ -23,6 +24,8 @@ for ax, model_type in zip(axes, model_types):
     ax.set_xscale("log")
     ax.set_xticks([2.5e2, 5e2, 1e3], labels=["$250$", "$500$", "$1000$"])
     ax.set_yscale("log")
+    kw = {"xy": (0.05, 0.92), "xycoords": "axes fraction", "fontsize": 16}
+    ax.annotate(panel_letter, **kw)
 
     colors = list(matplotlib.colors.TABLEAU_COLORS.keys())
     for name, results in data.items():

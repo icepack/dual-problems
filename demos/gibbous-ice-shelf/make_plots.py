@@ -62,7 +62,7 @@ fig.colorbar(colors, label="m", orientation="horizontal", pad=0.04, ax=axes[0, 0
 axes[0, 1].set_title("Velocity")
 axes[0, 1].annotate("b", **kw)
 colors = streamplot(u_steady, resolution=10e3, seed=1729, axes=axes[0, 1])
-fig.colorbar(colors, label="m/yr", orientation="horizontal", pad=0.04, ax=axes[0, 1])
+fig.colorbar(colors, label="m yr${}^{-1}$", orientation="horizontal", pad=0.04, ax=axes[0, 1])
 
 axes[0, 2].set_title("Membrane stress")
 axes[0, 2].annotate("c", **kw)
@@ -82,7 +82,7 @@ axes[1, 1].annotate("e", **kw)
 V = us[0].function_space()
 δu = firedrake.Function(V).interpolate(us[index] - us[0])
 colors = firedrake.tripcolor(δu, axes=axes[1, 1])
-fig.colorbar(colors, label="m/yr", orientation="horizontal", pad=0.04, ax=axes[1, 1])
+fig.colorbar(colors, label="m yr${}^{-1}$", orientation="horizontal", pad=0.04, ax=axes[1, 1])
 
 axes[1, 2].set_title("Stress change")
 axes[1, 2].annotate("f", **kw)
